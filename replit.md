@@ -1,6 +1,6 @@
-# [Project name]
+# Study Flow
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A mobile-first study companion frontend faithfully reproducing the supplied Study Flow Figma screens.
 
 ## Run & Operate
 
@@ -22,19 +22,25 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/study-flow/src/App.tsx` — screen components, local state, and routes.
+- `artifacts/study-flow/src/index.css` — styling matched to the supplied mobile references.
+- `artifacts/study-flow/src/assets/` — cropped illustrations from the supplied references.
+- The first 20 reference PNGs are preserved in `.local/conversation-workspace/files/attached_assets/`.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The current build is frontend-only; profile, goal, and subject setup use local browser storage.
+- Firebase, backend persistence, and AI services are intentionally deferred.
+- AI-labelled copy in the references is display-only; do not present it as generated or personalized output.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Study Flow helps college students set study goals, organize subjects, follow progress, and preview the quiz and recommendation flows shown in the supplied designs.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- The supplied Figma PNGs are the source of truth. Do not redesign existing screens or add screens/features not supported by references.
+- Later screen batches belong to this same app. Integrate them into the existing routes and visual system; do not restart the project or redesign screens 1–20.
 
 ## Gotchas
 

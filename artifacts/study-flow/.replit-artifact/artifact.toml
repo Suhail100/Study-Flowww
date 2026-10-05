@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Study Flow"
+description = "A mobile-first study companion frontend faithfully recreating the supplied Study Flow Figma screens, including onboarding, profile setup, and the student flows visible in the provided references."
+version = "1.0.0"
+id = "artifacts/study-flow"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18900
+
+[services.development]
+run = "pnpm --filter @workspace/study-flow run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/study-flow", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/study-flow/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18900"
+BASE_PATH = "/"
