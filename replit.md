@@ -25,7 +25,7 @@ A mobile-first study companion frontend faithfully reproducing the supplied Stud
 - `artifacts/study-flow/src/App.tsx` — screen components, local state, and routes.
 - `artifacts/study-flow/src/index.css` — styling matched to the supplied mobile references.
 - `artifacts/study-flow/src/assets/` — cropped illustrations from the supplied references.
-- The first 20 reference PNGs are preserved in `.local/conversation-workspace/files/attached_assets/`.
+- Screens 1–20 references are preserved in `.local/conversation-workspace/files/attached_assets/`; screens 21–40 are `attached_assets/Group_105` through `Group_124`.
 
 ## Architecture decisions
 

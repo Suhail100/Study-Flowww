@@ -1,18 +1,32 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, Route, Router, Switch, useLocation } from 'wouter';
 import {
-  Home, BookOpen, ChartNoAxesColumnIncreasing, CircleHelp, UserRound, Bell, ArrowRight,
+  BookOpen, CircleHelp, UserRound, Bell, ArrowRight,
   ChevronLeft, ChevronRight, Search, Plus, MoreVertical, Clock3, Target, Flame,
   CircleCheck, CircleX, Trophy, Lightbulb, Upload, NotebookPen, CalendarClock,
   GraduationCap, Settings, Mail, Building2, Goal, User, X, Brain, FileText,
   CircleUserRound, Medal, Star, Sparkles, ChartLine,
-  Bot, CloudUpload, Pencil, AlarmClock
+  Bot, CloudUpload, Pencil, AlarmClock, AlertTriangle
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { Action, Frame, Header } from './components/app-shell';
 import profileIllustration from './assets/profile-illustration.png';
 import emptyBooks from './assets/empty-books.png';
 import trophyIllustration from './assets/trophy.png';
+import subjectBookReference from './assets/reference/subject-book.png';
+import { EmptyProgress, EmptyQuizAttempts, EmptyMaterials, UploadFailure, EmptySubjectSearch, OfflineScreen } from './pages/reference-states';
+import { SettingsPage, EmptyNotifications, NotificationsList } from './pages/reference-preferences';
+import { AssistantUnavailable, AssistantHome, AssistantChat, MaterialSummary } from './pages/reference-assistant';
+import {
+  PlanGenerating,
+  PlanGenerationFailure,
+  StudyPlanOverview,
+  StudyPlanDays,
+  StudyPlanResources,
+  EmptyStudyPlanResources,
+} from './pages/reference-study-plan';
 import './index.css';
+import './reference-screens.css';
 
 type Subject = { name: string; date: string; goal: string; priority: string; progress: number };
 type Profile = { name: string; email: string; college: string; course: string; year: string; hours: string; score: string; avatar: string };
@@ -29,28 +43,6 @@ function useSaved<T>(key: string, initial: T) {
   });
   const save = (next: T) => { setValue(next); localStorage.setItem(key, JSON.stringify(next)); };
   return [value, save] as const;
-}
-function Action({ children, onClick, testId, outline=false }: { children: ReactNode; onClick?:()=>void; testId:string; outline?:boolean }) {
-  return <button type="button" data-testid={testId} onClick={onClick} className={outline?'button-outline':'button-primary'}>{children}</button>;
-}
-function BottomNav() {
-  const nav = [
-    ['/dashboard', <Home size={31}/>, 'Home'],
-    ['/subjects', <BookOpen size={31}/>, 'Subjects'],
-    ['/progress', <ChartNoAxesColumnIncreasing size={31}/>, 'Progress'],
-    ['/quiz', <CircleHelp size={31}/>, 'Quiz'],
-    ['/profile', <UserRound size={31}/>, 'Profile'],
-  ] as const;
-  return <nav className="bottom-nav" data-testid="navigation-bottom">{nav.map(([href, icon, name])=><Link key={href} href={href} aria-label={name} data-testid={`link-nav-${name.toLowerCase()}`}>{icon}</Link>)}</nav>;
-}
-function Frame({ children, nav=false }: {children:ReactNode; nav?:boolean}) {
-  return <div className="app-shell"><main className="phone"><div className="screen appear">{children}</div>{nav&&<BottomNav/>}</main></div>;
-}
-function Header({ title, back='/dashboard', right }: {title:string; back?:string; right?:ReactNode}) {
-  return <header style={{display:'flex',alignItems:'center',gap:12,marginBottom:22}}>
-    <Link href={back} data-testid="link-back" aria-label="Go back" style={{color:'#111',display:'flex'}}><ChevronLeft size={26}/></Link>
-    <h1 style={{font:'700 25px Outfit',margin:0,flex:1}} data-testid="text-page-title">{title}</h1>{right}
-  </header>;
 }
 function Welcome() {
  const [,go]=useLocation();
@@ -120,13 +112,13 @@ function AddSubjectsIntro() {
 function Dashboard() {
  const [profile]=useSaved<Profile>('study-profile',initialProfile); const [subjects]=useSaved<Subject[]>('study-subjects',starterSubjects); const [showTip,setShowTip]=useState(true); const [,go]=useLocation();
  return <Frame nav><section className="dashboard" data-testid="screen-dashboard">
-  <div className="dash-heading"><div><h1 className="title">Good Morning, {profile.name.split(' ')[0]}</h1><p className="subtitle">Keep going! You’re Doing Great</p></div><span className="icon-btn" data-testid="icon-notifications" aria-label="Notifications"><Bell/></span></div>
+   <div className="dash-heading"><div><h1 className="title">Good Morning, {profile.name.split(' ')[0]}</h1><p className="subtitle">Keep going! You’re Doing Great</p></div><button className="icon-btn" data-testid="icon-notifications" aria-label="Notifications" onClick={()=>go('/notifications')}><Bell/></button></div>
   <div className="goal-card card"><div><h3>Your Goal</h3><p>Score <b>{profile.score}</b></p></div><div className="ring-chart"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="43"/><circle className="ring-progress" cx="50" cy="50" r="43"/></svg><strong>75%</strong><small>Overall progress</small></div>
    <div className="stat-strip"><div><b>{subjects.length}</b><span>Subjects</span></div><div><b>3h</b><span>Study time</span></div><div><b>15 Nov</b><span>Exam date</span></div></div>
   </div>
-  <div className="focus-head"><h2>Today’s Focus</h2><Link href="/progress" data-testid="link-view-plans">View Plans <ArrowRight size={19}/></Link></div>
+   <div className="focus-head"><h2>Today’s Focus</h2><Link href="/study-plan" data-testid="link-view-plans">View Plans <ArrowRight size={19}/></Link></div>
   <div className="focus-cards">{['DBMS','OS','CN'].map(x=><button key={x} data-testid={`card-focus-${x}`} onClick={()=>go('/subject/overview')} className="focus-card"><b>{x}</b><span>30 Mins</span></button>)}</div>
-  {showTip&&<div className="assistant-banner"><Bot size={42}/><div><b>AI assistant</b><p>You’re doing Great! Focus more<br/> on normalisation Today</p></div><button data-testid="button-dismiss-tip" aria-label="Dismiss" onClick={()=>setShowTip(false)}><X size={21}/></button><span className="tip-star">✦</span></div>}
+   {showTip&&<div className="assistant-banner" role="link" tabIndex={0} data-testid="button-open-assistant" onClick={()=>go('/assistant')} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go('/assistant');}}}><Bot size={42}/><div><b>AI assistant</b><p>You’re doing Great! Focus more<br/> on normalisation Today</p></div><button data-testid="button-dismiss-tip" aria-label="Dismiss" onClick={e=>{e.stopPropagation();setShowTip(false);}}><X size={21}/></button><span className="tip-star">✦</span></div>}
  </section></Frame>;
 }
 function SubjectsPage({empty=false}:{empty?:boolean}) {
@@ -134,7 +126,7 @@ function SubjectsPage({empty=false}:{empty?:boolean}) {
  const filtered=useMemo(()=>subjects.filter(s=>s.name.toLowerCase().includes(query.toLowerCase())),[subjects,query]);
  return <Frame nav><section data-testid={empty?'screen-empty-subjects':'screen-subjects'} className="subjects-page">
   <div className="subjects-heading"><h1 className="title">Subjects</h1>{!empty&&<><button className="search-icon" data-testid="button-focus-search" onClick={()=>document.querySelector<HTMLInputElement>('[data-testid="input-search-subjects"]')?.focus()}><Search/></button><Link className="add-pill" href="/subject/add" data-testid="link-add-subject"><Plus size={15}/> Add</Link></>}</div>
-  <div className="search-box"><Search size={18}/><input data-testid="input-search-subjects" placeholder="Search Subjects.." value={query} onChange={e=>setQuery(e.target.value)}/></div>
+   <div className="search-box"><Search size={18}/><input data-testid="input-search-subjects" placeholder="Search Subjects.." value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&query.trim()&&!filtered.length)go('/subjects/no-results');}}/></div>
   <div className="tabs"><button className={tab==='mine'?'active':''} data-testid="button-tab-my-subjects" onClick={()=>setTab('mine')}>My Subjects</button><button className={tab==='all'?'active':''} data-testid="button-tab-all-subjects" onClick={()=>setTab('all')}>All</button></div>
   {(empty||(!filtered.length&&subjects.length===0))?<div className="empty-state"><div className="book-stack"><img src={emptyBooks} alt="" /></div><h2>No Subjects added yet</h2><p>Add your subjects to start building<br/> your personalized study plan</p><Link href="/subject/add" className="button-primary empty-add" data-testid="link-empty-add"><Plus size={20}/> Add Subjects</Link></div>
    :!filtered.length?<div className="empty-search"><Search size={40}/><p>No subjects match “{query}”</p></div>:
@@ -145,17 +137,19 @@ function SubjectsPage({empty=false}:{empty?:boolean}) {
  </section></Frame>;
 }
 function DatabaseArt(){return <div className="db-art" aria-hidden="true"><span/><i/><b/><em/></div>}
-function AddSubjectForm() {
- const [subjects,save]=useSaved<Subject[]>('study-subjects',starterSubjects); const [,go]=useLocation(); const [name,setName]=useState('Database management'); const [date,setDate]=useState('2026-10-15'); const [goal,setGoal]=useState('85%'); const [priority,setPriority]=useState('High'); const [error,setError]=useState('');
- const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()){setError('Enter a subject name to continue.');return;}if(subjects.some(s=>s.name.toLowerCase()===name.toLowerCase())){setError('That subject is already in your list.');return;}save([...subjects,{name:name.trim(),date:new Date(`${date}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),goal,priority,progress:0}]);go('/subjects');};
- return <Frame><section data-testid="screen-add-subject"><Header title="Add subject" back="/subjects"/><div className="form-book"><BookOpen size={46}/></div><h2 className="center form-title">Enter Subject details</h2><p className="subtitle center form-subtitle">Add subject name, goal,exam date and<br/> set its priority.</p>
+function AddSubjectForm(){return <SubjectForm/>}
+function AddSubjectValidation(){return <SubjectForm validation/>}
+function SubjectForm({validation=false}:{validation?:boolean}) {
+  const [subjects,save]=useSaved<Subject[]>('study-subjects',starterSubjects); const [,go]=useLocation(); const [name,setName]=useState(validation?'':'Database management'); const [date,setDate]=useState(validation?'':'2026-10-15'); const [goal,setGoal]=useState(validation?'':'85%'); const [priority,setPriority]=useState('High'); const [error,setError]=useState(validation?'Please fill in all required fields':'');
+  const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()||!date||!goal.trim()){setError('Please fill in all required fields');if(!validation)go('/subject/add/validation-error');return;}if(subjects.some(s=>s.name.toLowerCase()===name.toLowerCase())){setError('That subject is already in your list.');return;}save([...subjects,{name:name.trim(),date:new Date(`${date}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),goal,priority,progress:0}]);go('/subjects');};
+  return <Frame><section className={validation?'subject-add-validation':''} data-testid={validation?'screen-add-subject-validation':'screen-add-subject'}><Header title="Add subject" back={validation?'/subject/add':'/subjects'}/><div className="form-book">{validation?<img src={subjectBookReference} alt=""/>:<BookOpen size={46}/>}</div><h2 className="center form-title">Enter Subject details</h2><p className="subtitle center form-subtitle">Add subject name, goal,exam date and<br/> set its priority.</p>
   <form onSubmit={submit} className="subject-form">
-   <label className="form-box"><b>Subject Name<span>*</span></b><div><BookOpen size={22}/><input data-testid="input-subject-name" value={name} onChange={e=>setName(e.target.value)}/></div></label>
-   <label className="form-box"><b>Exam Date<span>*</span></b><div><CalendarClock size={22}/><input type="date" data-testid="input-exam-date" value={date} onChange={e=>setDate(e.target.value)}/></div></label>
-   <label className="form-box"><b>Goal ( Target score)<span>*</span></b><div><Target size={22}/><input data-testid="input-subject-goal" value={goal} onChange={e=>setGoal(e.target.value)}/></div></label>
+    <label className="form-box"><b>Subject Name<span>*</span></b><div><BookOpen size={22}/><input placeholder={validation?'e.g. Database management':undefined} data-testid="input-subject-name" value={name} onChange={e=>{setName(e.target.value);setError('');}}/></div></label>
+    <label className="form-box"><b>Exam Date<span>*</span></b><div><CalendarClock size={22}/><input type={validation?'text':'date'} placeholder={validation?'Select Date':undefined} data-testid="input-exam-date" value={date} onChange={e=>{setDate(e.target.value);setError('');}}/></div></label>
+    <label className="form-box"><b>Goal ( Target score)<span>*</span></b><div><Target size={22}/><input placeholder={validation?'e.g. 80%':undefined} data-testid="input-subject-goal" value={goal} onChange={e=>{setGoal(e.target.value);setError('');}}/></div></label>
    <fieldset className="form-box priority-field"><legend>Priority</legend><div className="priority-options">{['High','Medium','Low'].map(x=><button type="button" key={x} data-testid={`button-priority-${x.toLowerCase()}`} className={priority===x?'selected':''} onClick={()=>setPriority(x)}>{x}</button>)}</div></fieldset>
-   {error&&<p role="alert" className="error-text" data-testid="status-subject-error">{error}</p>}
-   <button className="button-primary create-subject" data-testid="button-create-subject" type="submit">Create subject <ArrowRight size={18}/></button><button type="button" className="button-outline cancel-subject" data-testid="button-cancel-subject" onClick={()=>go('/subjects')}>Cancel</button>
+    {error&&<p role="alert" className={validation?'subject-validation-error':'error-text'} data-testid="status-subject-error">{validation&&<AlertTriangle size={20}/>} {error}</p>}
+    {!validation&&<button className="button-primary create-subject" data-testid="button-create-subject" type="submit">Create subject <ArrowRight size={18}/></button>}<button type="button" className={`button-outline cancel-subject ${validation?'validation-cancel':''}`} data-testid="button-cancel-subject" onClick={()=>go(validation?'/subject/add':'/subjects')}>Cancel</button>
   </form>
  </section></Frame>;
 }
@@ -233,15 +227,15 @@ function Weakness() {
 }
 function Recommendations() {
  const [,go]=useLocation(); const recs:[string,string,LucideIcon][]=[['Personalized study plan','Focus on weak topics and improve accuracy',Target],['Recommended Topics','Normalization,indexes,transactions',BookOpen],['Practice quizzes','5 Topics - wise quizzes suggested',CircleHelp],['Next study step','Revise notes and take a full mock test',CalendarClock]];
- return <Frame nav><section data-testid="screen-subject-recommendations" className="subject-detail recommendations"><SubjectTop active="Recommendations"/><div className="recommend-panel"><h2>AI Recommendations</h2><p>Personalized study plan based on your performance<br/> and goals</p>{recs.map(([name,desc,Icon],i)=><div className="reco-row" key={String(name)} data-testid={`text-recommendation-${i}`}><Icon size={24}/><span><b>{name}</b><small>{desc}</small></span><ChevronRight/></div>)}</div><Action testId="button-start-study-plan" onClick={()=>go('/dashboard')}>Start Study plan</Action></section></Frame>;
+  return <Frame nav><section data-testid="screen-subject-recommendations" className="subject-detail recommendations"><SubjectTop active="Recommendations"/><div className="recommend-panel"><h2>AI Recommendations</h2><p>Personalized study plan based on your performance<br/> and goals</p>{recs.map(([name,desc,Icon],i)=><div className="reco-row" key={String(name)} data-testid={`text-recommendation-${i}`}><Icon size={24}/><span><b>{name}</b><small>{desc}</small></span><ChevronRight/></div>)}</div><Action testId="button-start-study-plan" onClick={()=>go('/study-plan/generating')}>Start Study plan</Action></section></Frame>;
 }
 function ProfilePage() {
  const [profile]=useSaved<Profile>('study-profile',initialProfile); const [,go]=useLocation();
  return <Frame nav><section data-testid="screen-profile" className="profile-page"><h1 className="section-head">Profile</h1><p className="subtitle">Your study journey, your way</p><div className="profile-overview">
    <div className="profile-avatar">{profile.avatar?<img src={profile.avatar} alt="Profile"/>:<img src={profileIllustration} alt="Profile"/>}</div><h2 data-testid="text-profile-name">{profile.name}</h2><p>{profile.email}</p></div>
-  <div className="profile-links"><div className="profile-link card" data-testid="card-profile-course"><GraduationCap/><span><b>{profile.course.includes('CSE')?'B.Tech computer science':profile.course}</b><small>{profile.college}</small></span><ChevronRight/></div>
+    <div className="profile-links"><div className="profile-link card" data-testid="card-profile-course"><GraduationCap/><span><b>{profile.course.includes('CSE')?'B.Tech computer science':profile.course}</b><small>{profile.college}</small></span><ChevronRight/></div>
    <button className="profile-link card" data-testid="button-edit-profile" onClick={()=>go('/profile/edit')}><UserRound/><span><b>Edit Profile</b><small>Update your personal information</small></span><ChevronRight/></button>
-   <div className="profile-link card" data-testid="card-settings"><Settings/><span><b>Settings</b><small>Manage your app preference</small></span><ChevronRight/></div></div>
+    <button type="button" className="profile-link card" data-testid="card-settings" onClick={()=>go('/settings')}><Settings/><span><b>Settings</b><small>Manage your app preference</small></span><ChevronRight/></button></div>
  </section></Frame>;
 }
 function EditProfile() {
@@ -258,14 +252,25 @@ function EditProfile() {
 function NotFound(){return <Frame><div className="not-found"><CircleHelp size={40}/><h1>Page not found</h1><Link href="/dashboard" data-testid="link-return-home">Return to StudyFlow</Link></div></Frame>}
 function SubjectListRoute(){return <SubjectsPage/>}
 function EmptySubjectsRoute(){return <SubjectsPage empty/>}
+function EmptySubjectsSearchRoute(){return <EmptySubjectSearch/>}
 function AppRoutes() {
  return <Switch>
   <Route path="/" component={Welcome}/><Route path="/welcome" component={Welcome}/><Route path="/intro" component={Intro}/>
   <Route path="/profile-details" component={ProfileDetails}/><Route path="/avatar" component={AvatarPage}/><Route path="/goal" component={GoalPage}/>
   <Route path="/add-subjects" component={AddSubjectsIntro}/><Route path="/dashboard" component={Dashboard}/>
-  <Route path="/subjects" component={SubjectListRoute}/><Route path="/subjects/empty" component={EmptySubjectsRoute}/>
-  <Route path="/subject/add" component={AddSubjectForm}/><Route path="/quiz" component={QuizHome}/><Route path="/quiz/setup" component={QuizSetup}/>
-  <Route path="/quiz/question" component={QuizQuestion}/><Route path="/quiz/results" component={QuizResults}/><Route path="/progress" component={Progress}/>
+  <Route path="/subjects/no-results" component={EmptySubjectsSearchRoute}/><Route path="/subjects/empty" component={EmptySubjectsRoute}/><Route path="/subjects" component={SubjectListRoute}/>
+  <Route path="/subject/add/validation-error" component={AddSubjectValidation}/><Route path="/subject/add" component={AddSubjectForm}/>
+  <Route path="/materials/upload-failed" component={UploadFailure}/><Route path="/materials" component={EmptyMaterials}/>
+  <Route path="/quiz/empty" component={EmptyQuizAttempts}/><Route path="/quiz" component={QuizHome}/><Route path="/quiz/setup" component={QuizSetup}/>
+  <Route path="/quiz/question" component={QuizQuestion}/><Route path="/quiz/results" component={QuizResults}/>
+  <Route path="/progress/empty" component={EmptyProgress}/><Route path="/progress" component={Progress}/>
+  <Route path="/settings" component={SettingsPage}/>
+  <Route path="/notifications/empty" component={EmptyNotifications}/><Route path="/notifications" component={NotificationsList}/>
+  <Route path="/assistant/error" component={AssistantUnavailable}/><Route path="/assistant/chat" component={AssistantChat}/><Route path="/assistant/material-summary" component={MaterialSummary}/><Route path="/assistant" component={AssistantHome}/>
+  <Route path="/offline" component={OfflineScreen}/>
+  <Route path="/study-plan/generating" component={PlanGenerating}/><Route path="/study-plan/generation-error" component={PlanGenerationFailure}/>
+  <Route path="/study-plan/resources/empty" component={EmptyStudyPlanResources}/><Route path="/study-plan/resources" component={StudyPlanResources}/>
+  <Route path="/study-plan/days" component={StudyPlanDays}/><Route path="/study-plan" component={StudyPlanOverview}/>
   <Route path="/subject/overview" component={SubjectOverview}/><Route path="/subject/weakness" component={Weakness}/>
   <Route path="/subject/recommendations" component={Recommendations}/><Route path="/profile" component={ProfilePage}/><Route path="/profile/edit" component={EditProfile}/>
   <Route component={NotFound}/>
