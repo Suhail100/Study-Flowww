@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { BookOpen, ChartNoAxesColumnIncreasing, ChevronLeft, CircleHelp, Home, UserRound } from 'lucide-react';
 
 export function Action({
@@ -26,18 +26,34 @@ export function Action({
 }
 
 function BottomNav() {
+  const [location] = useLocation();
   const nav = [
     ['/dashboard', <Home size={31} />, 'Home'],
     ['/subjects', <BookOpen size={31} />, 'Subjects'],
-    ['/progress', <ChartNoAxesColumnIncreasing size={31} />, 'Progress'],
     ['/quiz', <CircleHelp size={31} />, 'Quiz'],
+    ['/progress', <ChartNoAxesColumnIncreasing size={31} />, 'Progress'],
     ['/profile', <UserRound size={31} />, 'Profile'],
   ] as const;
+
+  const activePath =
+    location === '/dashboard' ? '/dashboard'
+      : location.startsWith('/subjects') || location.startsWith('/subject') ? '/subjects'
+        : location.startsWith('/quiz') ? '/quiz'
+          : location.startsWith('/progress') ? '/progress'
+            : location.startsWith('/profile') || location.startsWith('/settings') ? '/profile'
+              : null;
 
   return (
     <nav className="bottom-nav" data-testid="navigation-bottom">
       {nav.map(([href, icon, name]) => (
-        <Link key={href} href={href} aria-label={name} data-testid={`link-nav-${name.toLowerCase()}`}>
+        <Link
+          key={href}
+          href={href}
+          aria-label={name}
+          aria-current={activePath === href ? 'page' : undefined}
+          className={activePath === href ? 'active' : ''}
+          data-testid={`link-nav-${name.toLowerCase()}`}
+        >
           {icon}
         </Link>
       ))}

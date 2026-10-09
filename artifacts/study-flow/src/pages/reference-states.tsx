@@ -119,8 +119,8 @@ export function UploadFailure() {
         <Header title="Upload material" back="/materials" />
         <img src={uploadFailedArt} alt="" />
         <h2>Upload failed</h2>
-        <p>Something went wrong while uploading your file. please try again.</p>
-        <Action testId="button-retry-upload" onClick={() => go('/materials')}>Try Again</Action>
+        <p>Secure file storage is not connected yet. Your file was not saved.</p>
+        <Action testId="button-retry-upload" onClick={() => go('/materials')}>Back to materials</Action>
         <button className="button-outline upload-cancel" data-testid="button-cancel-upload" onClick={() => go('/study-plan/resources')}>
           Cancel
         </button>

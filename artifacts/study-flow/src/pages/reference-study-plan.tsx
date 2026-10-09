@@ -4,11 +4,14 @@ import { Action, Frame, Header } from '../components/app-shell';
 import { CenteredHeader } from './reference-common';
 import studyPlanLoadingArt from '../assets/reference/study-plan-loading.png';
 import studyPlanFailedArt from '../assets/reference/study-plan-failed.png';
+import studyPlanEmptyArt from '../assets/reference/study-plan-empty.png';
 import planCalendarArt from '../assets/reference/plan-calendar.png';
 import planTargetArt from '../assets/reference/plan-target.png';
 import planFolderArt from '../assets/reference/plan-folder.png';
 import resourcesEmptyArt from '../assets/reference/resources-empty.png';
-import { CircleCheck, ChevronRight, LockKeyhole, MoreVertical, Play, Plus } from 'lucide-react';
+import { CircleCheck, ChevronRight, Plus } from 'lucide-react';
+import { useStudyFlow } from '../lib/study-flow-store';
+import { buildLocalStudyPlan, getPlanRequirements } from '../lib/local-plan-builder';
 
 const studyPlanTabs = [
   { label: 'Overview', path: '/study-plan' },
@@ -39,12 +42,66 @@ function StudyPlanTabs({ active }: { active: string }) {
 function PlanSubtitle() {
   return (
     <div className="reference-plan-subtitle">
-      <p>Here’s how your Ai has structured<br />your preparation.</p>
+      <p>Your schedule is based on your saved<br />subjects, dates, and study time.</p>
     </div>
   );
 }
 
+function CreateLocalPlan() {
+  const { data, saveStudyPlan } = useStudyFlow();
+  const [, go] = useLocation();
+  const [error, setError] = useState('');
+  const missing = getPlanRequirements(data.subjects, data.preferences.dailyHours);
+  const create = () => {
+    if (missing.length) {
+      setError(missing.join(' '));
+      return;
+    }
+    saveStudyPlan(buildLocalStudyPlan(data.subjects, data.preferences.dailyHours));
+    go('/study-plan/days');
+  };
+  return (
+    <div className="local-plan-create">
+      <button className="button-primary" type="button" data-testid="button-create-local-plan" onClick={create}>
+        Create local draft
+      </button>
+      <small>Uses a fixed schedule from your saved data. AI plan generation is not connected.</small>
+      {error && <p role="alert" className="local-plan-error">{error}</p>}
+    </div>
+  );
+}
+
+export function EmptyStudyPlan({ active = 'Studyplan' }: { active?: string }) {
+  return (
+    <Frame nav>
+      <section className="study-plan-reference" data-testid="screen-study-plan-empty">
+        <Header title="Study Plan" back="/dashboard" right={<img className="plan-header-art target-art" src={planTargetArt} alt="" />} />
+        <PlanSubtitle />
+        <StudyPlanTabs active={active} />
+        <div className="empty-study-plan-state">
+          <img src={studyPlanEmptyArt} alt="" />
+          <h2>No study plan yet</h2>
+          <p>Your personalized study schedule will appear here once your plan is generated.</p>
+          <CreateLocalPlan />
+        </div>
+      </section>
+    </Frame>
+  );
+}
+
 export function PlanGenerating() {
+  const { data } = useStudyFlow();
+  if (!data.studyPlan) return (
+    <Frame nav>
+      <section className="plan-generating-reference" data-testid="screen-study-plan-generating">
+        <CenteredHeader title="Study plan" back="/study-plan/days" className="plan-status-header" />
+        <img className="plan-generating-art" src={studyPlanLoadingArt} alt="" />
+        <h2>AI plan generation is not connected</h2>
+        <p>You can create a local draft from your saved<br />subjects, exam dates, and study time.</p>
+        <CreateLocalPlan />
+      </section>
+    </Frame>
+  );
   return (
     <Frame>
       <section className="plan-generating-reference" data-testid="screen-study-plan-generating">
@@ -65,9 +122,9 @@ export function PlanGenerationFailure() {
       <section className="plan-failure-reference" data-testid="screen-study-plan-error">
         <CenteredHeader title="AI study plan" back="/study-plan" className="plan-status-header" />
         <img src={studyPlanFailedArt} alt="" />
-        <h2>Failed to generate plan</h2>
-        <p>We couldn’t generate your study plan<br />right now. please try again later.</p>
-        <Action testId="button-retry-study-plan" onClick={() => go('/study-plan/generating')}>Try Again</Action>
+        <h2>AI plan generation unavailable</h2>
+        <p>No AI service is connected. You can<br />create a local draft instead.</p>
+        <CreateLocalPlan />
         <button className="button-outline" data-testid="button-back-study-plan" onClick={() => go('/study-plan')}>Go back</button>
       </section>
     </Frame>
@@ -76,12 +133,19 @@ export function PlanGenerationFailure() {
 
 export function StudyPlanOverview() {
   const [, go] = useLocation();
-  const weeks = [
-    { number: 1, progress: 50, color: 'red' },
-    { number: 2, progress: 0, color: 'purple' },
-    { number: 3, progress: 0, color: 'green' },
-    { number: 4, progress: 0, color: 'olive' },
-  ];
+  const { data } = useStudyFlow();
+  const plan = data.studyPlan;
+  if (!plan) return <EmptyStudyPlan active="Overview" />;
+  const dates = Array.from(new Set(plan.tasks.map(task => task.scheduledFor))).sort();
+  const weeks = Array.from({ length: Math.ceil(dates.length / 7) }, (_, index) => {
+    const weekDates = dates.slice(index * 7, index * 7 + 7);
+    const weekTasks = plan.tasks.filter(task => weekDates.includes(task.scheduledFor));
+    return {
+      number: index + 1,
+      progress: weekTasks.length ? Math.round(weekTasks.filter(task => task.completedAt).length / weekTasks.length * 100) : 0,
+      color: ['red', 'purple', 'green', 'olive'][index % 4],
+    };
+  });
   return (
     <Frame nav>
       <section className="study-plan-reference" data-testid="screen-study-plan-overview">
@@ -105,7 +169,7 @@ export function StudyPlanOverview() {
             </button>
           ))}
         </div>
-        <div className="plan-consistency-note"><span>!</span><b>Your plan adapts to your pace.<br />stay consistent</b></div>
+        <div className="plan-consistency-note"><span>!</span><b>Local draft · update your subject dates<br />to rebuild this schedule.</b></div>
       </section>
     </Frame>
   );
@@ -119,66 +183,41 @@ const planDays = [
 ];
 
 export function StudyPlanDays() {
-  const [selectedDay, setSelectedDay] = useState(2);
-  const [completed, setCompleted] = useState(false);
+  const { data, completeTask } = useStudyFlow();
   const [, go] = useLocation();
+  const plan = data.studyPlan;
+  if (!plan) return <EmptyStudyPlan active="Studyplan" />;
+  const days = Array.from(new Set(plan.tasks.map(task => task.scheduledFor))).sort();
   return (
     <Frame nav>
       <section className="study-plan-reference" data-testid="screen-study-plan-days">
         <Header title="Study Plan" back="/dashboard" right={<img className="plan-header-art target-art" src={planTargetArt} alt="" />} />
         <PlanSubtitle />
         <StudyPlanTabs active="Studyplan" />
-        <div className="day-plan-heading"><h2>Our Plan</h2><button type="button" onClick={() => go('/study-plan')}>View All<ChevronRight size={19} /></button></div>
+        <div className="day-plan-heading"><h2>Our Plan</h2><button type="button" onClick={() => go('/study-plan')}>Overview<ChevronRight size={19} /></button></div>
         <div className="plan-day-list">
-          {planDays.map(item => {
-            const dayComplete = item.complete || (item.day === 2 && completed);
-            return (
-              <button
-                type="button"
-                key={item.day}
-                className={`plan-day-card ${selectedDay === item.day ? 'selected' : ''} ${item.locked ? 'locked' : ''}`}
-                onClick={() => {
-                  if (!item.locked) setSelectedDay(item.day);
-                }}
-                aria-disabled={item.locked}
-                data-testid={`button-plan-day-${item.day}`}
-              >
-                <span className="plan-day-name">Day {item.day}<small>{item.date}</small></span>
-                <span className="plan-day-tasks">· Normalization<br />· Practice questions(10)</span>
-                {item.locked ? <LockKeyhole size={25} /> : dayComplete ? <CircleCheck className="day-completed-icon" size={32} /> : <Play className="day-play-icon" size={28} />}
-              </button>
-            );
-          })}
+          {days.map((date, dayIndex) => (
+            <section className="plan-day-group" key={date}>
+              <h3>Day {dayIndex + 1} · {new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</h3>
+              {plan.tasks.filter(task => task.scheduledFor === date).map(task => {
+                const subject = data.subjects.find(item => item.id === task.subjectId);
+                return (
+                  <article className={`plan-day-card ${task.completedAt ? 'selected' : ''}`} key={task.id} data-testid={`task-${task.id}`}>
+                    <div className="plan-day-name"><b>{task.title}</b><small>{subject?.name ?? 'Removed subject'} · {task.minutes} min</small></div>
+                    <button type="button" className="plan-task-toggle" disabled={Boolean(task.completedAt)} onClick={() => completeTask(task.id)} data-testid={`button-complete-task-${task.id}`}>
+                      {task.completedAt ? <><CircleCheck className="day-completed-icon" size={25} /> Completed</> : 'Mark complete'}
+                    </button>
+                  </article>
+                );
+              })}
+            </section>
+          ))}
         </div>
-        <Action testId="button-mark-day-complete" onClick={() => setCompleted(true)}>{completed ? 'Completed' : 'Mark as completed'}</Action>
+        <p className="local-plan-note">This is a local draft schedule. No AI-generated plan is connected.</p>
       </section>
     </Frame>
   );
 }
-
-const resourceGroups = [
-  {
-    subject: 'DBMS',
-    files: [
-      { title: 'DBMS Notes.pdf', detail: '2.4 MB', type: 'pdf', summary: true },
-      { title: 'DB Notes.word', detail: '2025 paper', type: 'word' },
-    ],
-  },
-  {
-    subject: 'Operating system',
-    files: [
-      { title: 'Previous year imp', detail: '2026 paper', type: 'ppt' },
-      { title: 'OS Notes.pdf', detail: '3.4 MB', type: 'pdf' },
-    ],
-  },
-  {
-    subject: 'Computer network',
-    files: [
-      { title: 'Important question', detail: '2014 paper', type: 'doc' },
-      { title: 'CN Notes.pdf', detail: '4.4 MB', type: 'pdf' },
-    ],
-  },
-];
 
 function FileBadge({ type }: { type: string }) {
   return <span className={`reference-file-badge ${type}`}>{type.toUpperCase()}</span>;
@@ -186,6 +225,14 @@ function FileBadge({ type }: { type: string }) {
 
 export function StudyPlanResources() {
   const [, go] = useLocation();
+  const { data, setSelectedSubject } = useStudyFlow();
+  if (!data.materials.length) return <EmptyStudyPlanResources />;
+  const groups = data.subjects
+    .map(subject => ({
+      subject,
+      materials: data.materials.filter(material => material.subjectId === subject.id),
+    }))
+    .filter(group => group.materials.length > 0);
   return (
     <Frame nav>
       <section className="study-plan-reference" data-testid="screen-study-plan-resources">
@@ -194,26 +241,26 @@ export function StudyPlanResources() {
         <StudyPlanTabs active="Resources" />
         <div className="resources-section-heading"><h2>Study material for your subjects</h2><button type="button" onClick={() => go('/materials')}>View All <ChevronRight size={19} /></button></div>
         <div className="resource-group-list">
-          {resourceGroups.map(group => (
-            <section className="resource-group-card" key={group.subject}>
+          {groups.map(group => (
+            <section className="resource-group-card" key={group.subject.id}>
               <header>
-                <h3>{group.subject}</h3>
-                <button type="button" aria-label={`Add ${group.subject} resource`} onClick={() => go('/materials')}><Plus size={22} /></button>
-                <button type="button" aria-label={`${group.subject} resource options`}><MoreVertical size={21} /></button>
+                <h3>{group.subject.name}</h3>
+                <button type="button" aria-label={`Add ${group.subject.name} resource`} onClick={() => { setSelectedSubject(group.subject.id); go('/subject/materials'); }}><Plus size={22} /></button>
               </header>
-              {group.files.map(file => {
+              {group.materials.map(material => {
+                const detail = material.sourceUrl ? 'External link' : material.size ? `${(material.size / (1024 * 1024)).toFixed(1)} MB` : 'Metadata only';
                 const content = (
                   <>
-                    <FileBadge type={file.type} />
-                    <span><b>{file.title}</b><small>{file.detail}</small></span>
+                    <FileBadge type={material.type} />
+                    <span><b>{material.name}</b><small>{detail}</small></span>
                   </>
                 );
-                return file.summary ? (
-                  <button type="button" className="resource-file-card" key={file.title} onClick={() => go('/assistant/material-summary')} data-testid="button-open-dbms-summary">
+                return material.sourceUrl ? (
+                  <button type="button" className="resource-file-card" key={material.id} onClick={() => window.open(material.sourceUrl, '_blank', 'noopener,noreferrer')} data-testid={`button-open-resource-${material.id}`}>
                     {content}
                   </button>
                 ) : (
-                  <div className="resource-file-card" key={file.title}>{content}</div>
+                  <div className="resource-file-card" key={material.id}>{content}</div>
                 );
               })}
             </section>
@@ -235,7 +282,7 @@ export function EmptyStudyPlanResources() {
         <div className="empty-plan-resources">
           <img src={resourcesEmptyArt} alt="" />
           <h2>No resources yet</h2>
-          <p>Add notes , PDF’s or study<br />materials for subjects</p>
+          <p>Add resource links or upload files<br />when secure storage is connected.</p>
           <Action testId="button-add-resources" onClick={() => go('/materials')}>Add Resources</Action>
         </div>
       </section>

@@ -10,13 +10,24 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Action, Frame, Header } from './components/app-shell';
+import {
+  StudyFlowProvider,
+  makeId,
+  useStudyFlow,
+  type Profile,
+  type QuizAnswer,
+  type QuizAttempt,
+  type QuizSession,
+  type StudyTask,
+  type Subject,
+  type SubjectDraft,
+} from './lib/study-flow-store';
 import profileIllustration from './assets/profile-illustration.png';
 import emptyBooks from './assets/empty-books.png';
 import trophyIllustration from './assets/trophy.png';
 import subjectBookReference from './assets/reference/subject-book.png';
 import { EmptyProgress, EmptyQuizAttempts, EmptyMaterials, UploadFailure, EmptySubjectSearch, OfflineScreen } from './pages/reference-states';
-import { SettingsPage, EmptyNotifications, NotificationsList } from './pages/reference-preferences';
-import { AssistantUnavailable, AssistantHome, AssistantChat, MaterialSummary } from './pages/reference-assistant';
+import { SettingsPage, SettingsInfoPage, EmptyNotifications, NotificationsList } from './pages/reference-preferences';
 import {
   PlanGenerating,
   PlanGenerationFailure,
@@ -25,25 +36,11 @@ import {
   StudyPlanResources,
   EmptyStudyPlanResources,
 } from './pages/reference-study-plan';
+import { getSampleQuestions } from './lib/sample-quiz-data';
+import materialsEmptyArt from './assets/reference/materials-empty.png';
 import './index.css';
 import './reference-screens.css';
 
-type Subject = { name: string; date: string; goal: string; priority: string; progress: number };
-type Profile = { name: string; email: string; college: string; course: string; year: string; hours: string; score: string; avatar: string };
-const starterSubjects: Subject[] = [
-  { name: 'DBMS', date: '15 Nov 2026', goal: '85%', priority: 'High', progress: 60 },
-  { name: 'Computer networks', date: '20 Nov 2026', goal: '80%', priority: 'Medium', progress: 40 },
-  { name: 'Operating System', date: '25 Nov 2026', goal: '80%', priority: 'Medium', progress: 20 },
-  { name: 'Software engineering', date: '30 Nov 2026', goal: '75%', priority: 'Low', progress: 10 },
-];
-const initialProfile: Profile = { name:'Suhail khan', email:'suhailkhan@gmail.com', college:'Sathyabama university', course:'B.E - CSE', year:'3rd year', hours:'4 - 5 hours', score:'80%', avatar:'' };
-function useSaved<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
-    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) as T : initial; } catch { return initial; }
-  });
-  const save = (next: T) => { setValue(next); localStorage.setItem(key, JSON.stringify(next)); };
-  return [value, save] as const;
-}
 function Welcome() {
  const [,go]=useLocation();
  return <main className="welcome-screen" data-testid="screen-welcome">
@@ -69,183 +66,325 @@ function Intro() {
  </div></Frame>;
 }
 function ProfileDetails() {
- const [profile,save]=useSaved<Profile>('study-profile',initialProfile); const [,go]=useLocation();
+  const {data,updateProfile}=useStudyFlow(); const profile=data.profile; const [,go]=useLocation();
  const fields:[string,keyof Profile][]=[['Full Name','name'],['College/University','college'],['Degree/Course','course'],['Year/Semester','year']];
  return <Frame><section data-testid="screen-profile-details" className="profile-details">
    <h1 className="title">Tell Us About Yourself</h1><p className="subtitle">Let’s set up your profile to<br/> get started</p>
    <div className="profile-symbol"><CircleUserRound size={94} strokeWidth={1.1}/><Plus className="profile-add" size={24}/></div>
-   <form onSubmit={(e:FormEvent)=>{e.preventDefault();go('/avatar')}}>{fields.map(([label,key])=><label className="field-label" key={key}>{label}<input data-testid={`input-${key}`} className="input" value={profile[key]} onChange={e=>save({...profile,[key]:e.target.value})}/></label>)}
+    <form onSubmit={(e:FormEvent)=>{e.preventDefault();go('/avatar')}}>{fields.map(([label,key])=><label className="field-label" key={key}>{label}<input data-testid={`input-${key}`} className="input" value={profile[key]} onChange={e=>updateProfile({[key]:e.target.value})}/></label>)}
    <button className="button-primary profile-next" data-testid="button-next-avatar" type="submit">Next <ArrowRight size={19}/></button></form>
   </section></Frame>;
 }
 function AvatarPage() {
- const [profile,save]=useSaved<Profile>('study-profile',initialProfile); const [,go]=useLocation();
- const handleFile=(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(file){const r=new FileReader();r.onload=()=>save({...profile,avatar:String(r.result)});r.readAsDataURL(file);}};
+  const {data,updateProfile}=useStudyFlow(); const profile=data.profile; const [,go]=useLocation();
+  const handleFile=(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(file){if(file.size>5*1024*1024){window.alert('Choose an image under 5 MB. Profile photo storage is not connected yet.');return;}const r=new FileReader();r.onload=()=>updateProfile({avatar:String(r.result)});r.readAsDataURL(file);}};
  return <Frame><section className="avatar-page" data-testid="screen-avatar">
   <h1 className="title">Add Profile Picture</h1><p className="subtitle">Choose a photo or upload<br/> one from your gallery.</p>
   <div className="avatar-ring">{profile.avatar?<img src={profile.avatar} alt="Profile avatar"/>:<UserRound size={95} strokeWidth={.8}/>}</div>
   <label className="button-primary upload-button"><Upload size={18}/> Upload photo<input type="file" accept="image/*" onChange={handleFile} data-testid="input-avatar-upload"/></label>
   <button className="gallery-button" data-testid="button-choose-gallery" onClick={()=>document.querySelector<HTMLInputElement>('[data-testid="input-avatar-upload"]')?.click()}>Choose From Gallery</button>
-  <button className="skip-link" data-testid="button-skip-avatar" onClick={()=>go('/goal')}>Skip</button>
+   <small className="local-photo-note">Photo preview only; secure photo storage is not connected.</small>
+   <button className="skip-link" data-testid="button-skip-avatar" onClick={()=>go('/goal')}>Skip</button>
  </section></Frame>;
 }
 function GoalPage() {
- const [,go]=useLocation(); const [goal,setGoal]=useSaved('study-goal','80%'); const [hours,setHours]=useSaved('study-hours','2hrs'); const [selectedGoal,setSelectedGoal]=useState('');
+  const [,go]=useLocation(); const {data,updatePreferences}=useStudyFlow(); const goal=data.preferences.targetScore; const hours=data.preferences.dailyHours; const [selectedGoal,setSelectedGoal]=useState('');
  const choices:[string,string,LucideIcon][]=[['Score 90%','High performance',Trophy],['Score 80%','Top performer',Medal],['Score 70%','Good grades,decent marks',Medal],['Score 60%','Pass with good marks',Star]];
  return <Frame><section data-testid="screen-goal"><h1 className="title">Set Your Goal</h1><p className="subtitle">What is Your Main Goal For<br/> This Semester?</p>
-  <div className="goal-options">{choices.map(([name,desc,Icon])=><button key={String(name)} className={`goal-option ${selectedGoal===String(name).slice(6)?'chosen':''}`} data-testid={`button-goal-${String(name).slice(6,8)}`} onClick={()=>{const value=String(name).slice(6);setSelectedGoal(value);setGoal(value);}}><Icon size={39} strokeWidth={1.35}/><span><b>{name}</b><small>{desc}</small></span></button>)}</div>
-  <label className="select-label">Target score<input className="input" data-testid="input-target-score" value={goal} onChange={e=>setGoal(e.target.value)}/></label>
-  <label className="select-label">Daily study Time<select className="input" value={hours} data-testid="select-study-hours" onChange={e=>setHours(e.target.value)}>{['1hr','2hrs','3hrs','4 - 5 hours','6+ hours'].map(x=><option key={x}>{x}</option>)}</select></label>
+   <div className="goal-options">{choices.map(([name,desc,Icon])=><button key={String(name)} className={`goal-option ${selectedGoal===String(name).slice(6)?'chosen':''}`} data-testid={`button-goal-${String(name).slice(6,8)}`} onClick={()=>{const value=String(name).slice(6);setSelectedGoal(value);updatePreferences({targetScore:value});}}><Icon size={39} strokeWidth={1.35}/><span><b>{name}</b><small>{desc}</small></span></button>)}</div>
+   <label className="select-label">Target score<input className="input" data-testid="input-target-score" value={goal} placeholder="e.g. 80%" onChange={e=>updatePreferences({targetScore:e.target.value})}/></label>
+   <label className="select-label">Daily study Time<select className="input" value={hours} data-testid="select-study-hours" onChange={e=>updatePreferences({dailyHours:e.target.value})}><option value="">Choose daily study time</option>{['1hr','2hrs','3hrs','4 - 5 hours','6+ hours'].map(x=><option key={x}>{x}</option>)}</select></label>
   <div style={{margin:'28px 5px 0'}}><Action testId="button-next-subjects" onClick={()=>go('/add-subjects')}>Next</Action></div>
  </section></Frame>;
 }
 function AddSubjectsIntro() {
- const [,go]=useLocation(); const [subjects,save]=useSaved<Subject[]>('study-subjects',starterSubjects); const [files,setFiles]=useState<string[]>([]); const starters=['data structures','AIML','Python','English','Language'];
- const add=(name:string)=>{if(!subjects.some(x=>x.name.toLowerCase()===name.toLowerCase()))save([...subjects,{name,date:'15 Nov 2026',goal:'80%',priority:'Medium',progress:0}]);};
+  const [,go]=useLocation(); const {data,addSubject,setSelectedSubject}=useStudyFlow(); const [files,setFiles]=useState<string[]>([]); const starters=['Data Structures','AIML','Python','English','Language'];
+  const add=(name:string)=>{const subject=addSubject({name,examDate:'',goal:'',priority:'Medium'});if(subject)setSelectedSubject(subject.id);};
  return <Frame><section data-testid="screen-add-subjects"><h1 className="title">Add Your Subject</h1><p className="subtitle">Upload your subjects files or add them<br/> manually,you can rename them later.</p>
-   <label className="file-drop"><CloudUpload size={56} strokeWidth={1.1}/><b>{files.length?`${files.length} file${files.length>1?'s':''} selected`:'upload your Subjects'}</b><small>{files.length?files.join(', '):'PDF,DOC/DOCX,PPT/PPTX,JPG/PNG'}</small><input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.png" data-testid="input-subject-files" onChange={e=>setFiles(Array.from(e.target.files??[]).map(file=>file.name))}/></label>
+    <label className="file-drop"><CloudUpload size={56} strokeWidth={1.1}/><b>{files.length?`${files.length} selected — upload unavailable`:'upload your Subjects'}</b><small>{files.length?'Files have not been uploaded; secure storage is not configured.':'PDF,DOC/DOCX,PPT/PPTX,JPG/PNG'}</small><input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.png" data-testid="input-subject-files" onChange={e=>{const selected=Array.from(e.target.files??[]);setFiles(selected.map(file=>file.name));if(selected.length)go('/materials/upload-failed');}}/></label>
    <h2 className="muted-heading">Or add manually</h2>
    <div className="starter-subjects">{starters.map((s,i)=><button key={s} className="starter-row" data-testid={`button-add-${s.replaceAll(' ','-')}`} onClick={()=>add(s)}><span className={`note-icon note-${i}`}><NotebookPen size={26}/></span>{s}<ChevronRight size={22}/></button>)}</div>
    <div className="onboard-next"><Action testId="button-finish-onboarding" onClick={()=>go('/dashboard')}>Next</Action></div>
  </section></Frame>;
 }
 function Dashboard() {
- const [profile]=useSaved<Profile>('study-profile',initialProfile); const [subjects]=useSaved<Subject[]>('study-subjects',starterSubjects); const [showTip,setShowTip]=useState(true); const [,go]=useLocation();
+  const {data,setSelectedSubject}=useStudyFlow(); const {profile,subjects,studyPlan,quizAttempts}=data; const [showTip,setShowTip]=useState(true); const [,go]=useLocation();
+  const today = new Date().toISOString().slice(0,10);
+  const todayTasks = studyPlan?.tasks.filter(task=>task.scheduledFor===today&&!task.completedAt) ?? [];
+  const completedTasks = studyPlan?.tasks.filter(task=>Boolean(task.completedAt)).length ?? 0;
+  const activeSubject = subjects.find(subject=>subject.id===data.selectedSubjectId) ?? subjects[0];
+  const openAssistant = () => {
+    if (!activeSubject) { go('/subjects'); return; }
+    setSelectedSubject(activeSubject.id);
+    go('/subject/chat');
+  };
  return <Frame nav><section className="dashboard" data-testid="screen-dashboard">
-   <div className="dash-heading"><div><h1 className="title">Good Morning, {profile.name.split(' ')[0]}</h1><p className="subtitle">Keep going! You’re Doing Great</p></div><button className="icon-btn" data-testid="icon-notifications" aria-label="Notifications" onClick={()=>go('/notifications')}><Bell/></button></div>
-  <div className="goal-card card"><div><h3>Your Goal</h3><p>Score <b>{profile.score}</b></p></div><div className="ring-chart"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="43"/><circle className="ring-progress" cx="50" cy="50" r="43"/></svg><strong>75%</strong><small>Overall progress</small></div>
-   <div className="stat-strip"><div><b>{subjects.length}</b><span>Subjects</span></div><div><b>3h</b><span>Study time</span></div><div><b>15 Nov</b><span>Exam date</span></div></div>
-  </div>
-   <div className="focus-head"><h2>Today’s Focus</h2><Link href="/study-plan" data-testid="link-view-plans">View Plans <ArrowRight size={19}/></Link></div>
-  <div className="focus-cards">{['DBMS','OS','CN'].map(x=><button key={x} data-testid={`card-focus-${x}`} onClick={()=>go('/subject/overview')} className="focus-card"><b>{x}</b><span>30 Mins</span></button>)}</div>
-   {showTip&&<div className="assistant-banner" role="link" tabIndex={0} data-testid="button-open-assistant" onClick={()=>go('/assistant')} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go('/assistant');}}}><Bot size={42}/><div><b>AI assistant</b><p>You’re doing Great! Focus more<br/> on normalisation Today</p></div><button data-testid="button-dismiss-tip" aria-label="Dismiss" onClick={e=>{e.stopPropagation();setShowTip(false);}}><X size={21}/></button><span className="tip-star">✦</span></div>}
+    <div className="dash-heading"><div><h1 className="title">Good Morning, {profile.name.trim().split(' ')[0]||'Student'}</h1><p className="subtitle">{subjects.length?'Your learning activity at a glance':'Add a subject to get started'}</p></div><button className="icon-btn" data-testid="icon-notifications" aria-label="Notifications" onClick={()=>go('/notifications')}><Bell/></button></div>
+   {subjects.length===0
+    ? <div className="dashboard-empty card"><BookOpen size={38}/><h2>No subjects yet</h2><p>Add a subject to create quizzes, track progress, and build a study plan.</p><button className="button-primary" onClick={()=>go('/subject/add')} data-testid="button-dashboard-add-subject">Add your first subject</button></div>
+    : <div className="goal-card card"><div><h3>Your Goal</h3><p>Target <b>{profile.score||data.preferences.targetScore||'Not set'}</b></p></div><div className="ring-chart"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="43"/><circle className="ring-progress" cx="50" cy="50" r="43" style={{strokeDasharray:`${studyPlan&&studyPlan.tasks.length?Math.round(completedTasks/studyPlan.tasks.length*270):0} 270`}}/></svg><strong>{studyPlan&&studyPlan.tasks.length?Math.round(completedTasks/studyPlan.tasks.length*100):0}%</strong><small>Tasks complete</small></div>
+    <div className="stat-strip"><div><b>{subjects.length}</b><span>Subjects</span></div><div><b>{quizAttempts.length}</b><span>Quizzes</span></div><div><b>{studyPlan?.tasks.filter(task=>!task.completedAt).length??0}</b><span>Tasks left</span></div></div></div>}
+    <div className="focus-head"><h2>Today’s Focus</h2><Link href="/study-plan" data-testid="link-view-plans">View Plan <ArrowRight size={19}/></Link></div>
+   {todayTasks.length ? <div className="focus-cards">{todayTasks.map(task=>{const subject=subjects.find(item=>item.id===task.subjectId);return <button key={task.id} data-testid={`card-focus-${task.id}`} onClick={()=>{if(subject){setSelectedSubject(subject.id);go('/subject/overview');}}} className="focus-card"><b>{task.title}</b><span>{task.minutes} min · {subject?.name}</span></button>;})}</div> : <p className="dashboard-no-tasks">{studyPlan?'No unfinished study tasks scheduled for today.':'No study plan yet. Your plan will use your saved subjects and study preferences.'}</p>}
+    {showTip&&<div className="assistant-banner" role="link" tabIndex={0} data-testid="button-open-assistant" onClick={openAssistant} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAssistant();}}}><Bot size={42}/><div><b>Subject assistant</b><p>{activeSubject?`Ask about ${activeSubject.name}. Gemini is not connected yet.`:'Add a subject to open its assistant.'}</p></div><button data-testid="button-dismiss-tip" aria-label="Dismiss" onClick={e=>{e.stopPropagation();setShowTip(false);}}><X size={21}/></button><span className="tip-star">✦</span></div>}
  </section></Frame>;
 }
 function SubjectsPage({empty=false}:{empty?:boolean}) {
- const [subjects,save]=useSaved<Subject[]>('study-subjects',starterSubjects); const [query,setQuery]=useState(''); const [tab,setTab]=useState<'mine'|'all'>('mine'); const [,go]=useLocation();
- const filtered=useMemo(()=>subjects.filter(s=>s.name.toLowerCase().includes(query.toLowerCase())),[subjects,query]);
+  const {data,updateSubject,deleteSubject,setSelectedSubject}=useStudyFlow(); const {subjects,studyPlan,quizAttempts}=data;
+  const [query,setQuery]=useState(''); const [tab,setTab]=useState<'mine'|'all'>('mine'); const [openMenu,setOpenMenu]=useState<string|null>(null); const [,go]=useLocation();
+  const filtered=useMemo(()=>subjects.filter(s=>s.name.toLowerCase().includes(query.toLowerCase())),[subjects,query]);
+  const openSubject=(subject:Subject)=>{setSelectedSubject(subject.id);go('/subject/overview');};
+  const renameSubject=(subject:Subject)=>{
+    const name=window.prompt('Rename subject',subject.name)?.trim();
+    if(!name||name.toLowerCase()===subject.name.toLowerCase())return;
+    if(subjects.some(item=>item.id!==subject.id&&item.name.toLowerCase()===name.toLowerCase())){window.alert('A subject with that name already exists.');return;}
+    updateSubject(subject.id,{name});
+  };
  return <Frame nav><section data-testid={empty?'screen-empty-subjects':'screen-subjects'} className="subjects-page">
   <div className="subjects-heading"><h1 className="title">Subjects</h1>{!empty&&<><button className="search-icon" data-testid="button-focus-search" onClick={()=>document.querySelector<HTMLInputElement>('[data-testid="input-search-subjects"]')?.focus()}><Search/></button><Link className="add-pill" href="/subject/add" data-testid="link-add-subject"><Plus size={15}/> Add</Link></>}</div>
    <div className="search-box"><Search size={18}/><input data-testid="input-search-subjects" placeholder="Search Subjects.." value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&query.trim()&&!filtered.length)go('/subjects/no-results');}}/></div>
   <div className="tabs"><button className={tab==='mine'?'active':''} data-testid="button-tab-my-subjects" onClick={()=>setTab('mine')}>My Subjects</button><button className={tab==='all'?'active':''} data-testid="button-tab-all-subjects" onClick={()=>setTab('all')}>All</button></div>
-  {(empty||(!filtered.length&&subjects.length===0))?<div className="empty-state"><div className="book-stack"><img src={emptyBooks} alt="" /></div><h2>No Subjects added yet</h2><p>Add your subjects to start building<br/> your personalized study plan</p><Link href="/subject/add" className="button-primary empty-add" data-testid="link-empty-add"><Plus size={20}/> Add Subjects</Link></div>
+   {(empty||(!filtered.length&&subjects.length===0))?<div className="empty-state"><div className="book-stack"><img src={emptyBooks} alt="" /></div><h2>No Subjects added yet</h2><p>Add your subjects to start building<br/> your personalized study plan</p><Link href="/subject/add" className="button-primary empty-add" data-testid="link-empty-add"><Plus size={20}/> Add Subjects</Link></div>
    :!filtered.length?<div className="empty-search"><Search size={40}/><p>No subjects match “{query}”</p></div>:
-    <div className="subject-list">{filtered.map((s,i)=><article className="subject-row list-card" key={s.name} data-testid={`card-subject-${s.name.toLowerCase().replaceAll(' ','-')}`} onClick={()=>go('/subject/overview')}>
-      <div className={`subject-art art-${i%4}`}><DatabaseArt/></div><div className="subject-info"><b>{s.name}</b><small>5 Units · {s.date}</small><div className="progress-bar"><span style={{width:`${s.progress}%`,background:['#3e70e5','#20c64f','#be32c9','#7a26b7'][i%4]}}/></div></div>
-      <div className="mini-ring" style={{'--pct':`${s.progress}%`} as React.CSSProperties}><b>{s.progress}%</b></div><button className="more-btn" data-testid={`button-menu-subject-${i}`} onClick={e=>{e.stopPropagation();const ok=window.confirm(`Remove ${s.name}?`);if(ok)save(subjects.filter(x=>x.name!==s.name));}} aria-label={`Remove ${s.name}`}><MoreVertical size={21}/></button>
-    </article>)}</div>}
+     <div className="subject-list">{filtered.map((s,i)=>{
+       const tasks=studyPlan?.tasks.filter(task=>task.subjectId===s.id)??[];
+       const completed=tasks.filter(task=>task.completedAt).length;
+       const attempts=quizAttempts.filter(attempt=>attempt.subjectId===s.id);
+       return <article className="subject-row list-card" key={s.id} data-testid={`card-subject-${s.id}`} onClick={()=>openSubject(s)} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSubject(s);}}}>
+       <div className={`subject-art art-${i%4}`}><DatabaseArt/></div><div className="subject-info"><b>{s.name}</b><small>{s.examDate?`Exam · ${new Date(`${s.examDate}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`:'Exam date not set'}</small>{tasks.length>0?<div className="progress-bar"><span style={{width:`${Math.round(completed/tasks.length*100)}%`}}/></div>:<small>{attempts.length?`${attempts.length} quiz${attempts.length===1?'':'zes'} completed`:'No activity yet'}</small>}</div>
+       {tasks.length>0&&<div className="mini-ring" style={{'--pct':`${Math.round(completed/tasks.length*100)}%`} as React.CSSProperties}><b>{Math.round(completed/tasks.length*100)}%</b></div>}
+       <div className="subject-actions"><button className="more-btn" type="button" data-testid={`button-menu-subject-${i}`} onClick={e=>{e.stopPropagation();setOpenMenu(openMenu===s.id?null:s.id);}} aria-label={`Subject options for ${s.name}`}><MoreVertical size={21}/></button>{openMenu===s.id&&<div className="subject-action-menu" onClick={e=>e.stopPropagation()}><button type="button" onClick={()=>{setOpenMenu(null);renameSubject(s);}}>Rename</button><button type="button" onClick={()=>{setOpenMenu(null);if(window.confirm(`Delete ${s.name}? This also removes its local materials, study tasks, and chat history.`))deleteSubject(s.id);}}>Delete</button></div>}</div>
+     </article>})}</div>}
  </section></Frame>;
 }
 function DatabaseArt(){return <div className="db-art" aria-hidden="true"><span/><i/><b/><em/></div>}
 function AddSubjectForm(){return <SubjectForm/>}
 function AddSubjectValidation(){return <SubjectForm validation/>}
 function SubjectForm({validation=false}:{validation?:boolean}) {
-  const [subjects,save]=useSaved<Subject[]>('study-subjects',starterSubjects); const [,go]=useLocation(); const [name,setName]=useState(validation?'':'Database management'); const [date,setDate]=useState(validation?'':'2026-10-15'); const [goal,setGoal]=useState(validation?'':'85%'); const [priority,setPriority]=useState('High'); const [error,setError]=useState(validation?'Please fill in all required fields':'');
-  const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()||!date||!goal.trim()){setError('Please fill in all required fields');if(!validation)go('/subject/add/validation-error');return;}if(subjects.some(s=>s.name.toLowerCase()===name.toLowerCase())){setError('That subject is already in your list.');return;}save([...subjects,{name:name.trim(),date:new Date(`${date}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),goal,priority,progress:0}]);go('/subjects');};
+  const {data,addSubject,setSubjectDraft,setSelectedSubject}=useStudyFlow(); const [,go]=useLocation();
+  const [draft,setDraft]=useState<SubjectDraft>(()=>data.subjectDraft??{name:'',examDate:'',goal:'',priority:'Medium'});
+  const [error,setError]=useState(validation?'Please fill in all required fields':'');
+  const update=(patch:Partial<SubjectDraft>)=>{setDraft(current=>({...current,...patch}));setError('');};
+  const submit=(e:FormEvent)=>{e.preventDefault();const name=draft.name.trim();if(!name||!draft.examDate||!draft.goal.trim()){setError('Please fill in all required fields');setSubjectDraft(draft);if(!validation)go('/subject/add/validation-error');return;}const created=addSubject({...draft,name});if(!created){setError('A subject with that name already exists.');return;}setSelectedSubject(created.id);go('/subjects');};
   return <Frame><section className={validation?'subject-add-validation':''} data-testid={validation?'screen-add-subject-validation':'screen-add-subject'}><Header title="Add subject" back={validation?'/subject/add':'/subjects'}/><div className="form-book">{validation?<img src={subjectBookReference} alt=""/>:<BookOpen size={46}/>}</div><h2 className="center form-title">Enter Subject details</h2><p className="subtitle center form-subtitle">Add subject name, goal,exam date and<br/> set its priority.</p>
   <form onSubmit={submit} className="subject-form">
-    <label className="form-box"><b>Subject Name<span>*</span></b><div><BookOpen size={22}/><input placeholder={validation?'e.g. Database management':undefined} data-testid="input-subject-name" value={name} onChange={e=>{setName(e.target.value);setError('');}}/></div></label>
-    <label className="form-box"><b>Exam Date<span>*</span></b><div><CalendarClock size={22}/><input type={validation?'text':'date'} placeholder={validation?'Select Date':undefined} data-testid="input-exam-date" value={date} onChange={e=>{setDate(e.target.value);setError('');}}/></div></label>
-    <label className="form-box"><b>Goal ( Target score)<span>*</span></b><div><Target size={22}/><input placeholder={validation?'e.g. 80%':undefined} data-testid="input-subject-goal" value={goal} onChange={e=>{setGoal(e.target.value);setError('');}}/></div></label>
-   <fieldset className="form-box priority-field"><legend>Priority</legend><div className="priority-options">{['High','Medium','Low'].map(x=><button type="button" key={x} data-testid={`button-priority-${x.toLowerCase()}`} className={priority===x?'selected':''} onClick={()=>setPriority(x)}>{x}</button>)}</div></fieldset>
+    <label className="form-box"><b>Subject Name<span>*</span></b><div><BookOpen size={22}/><input placeholder="e.g. Database management" data-testid="input-subject-name" value={draft.name} onChange={e=>update({name:e.target.value})}/></div></label>
+    <label className="form-box"><b>Exam Date<span>*</span></b><div><CalendarClock size={22}/><input type="date" data-testid="input-exam-date" value={draft.examDate} onChange={e=>update({examDate:e.target.value})}/></div></label>
+    <label className="form-box"><b>Goal ( Target score)<span>*</span></b><div><Target size={22}/><input placeholder="e.g. 80%" data-testid="input-subject-goal" value={draft.goal} onChange={e=>update({goal:e.target.value})}/></div></label>
+    <fieldset className="form-box priority-field"><legend>Priority</legend><div className="priority-options">{(['High','Medium','Low'] as const).map(x=><button type="button" key={x} data-testid={`button-priority-${x.toLowerCase()}`} className={draft.priority===x?'selected':''} onClick={()=>update({priority:x})}>{x}</button>)}</div></fieldset>
     {error&&<p role="alert" className={validation?'subject-validation-error':'error-text'} data-testid="status-subject-error">{validation&&<AlertTriangle size={20}/>} {error}</p>}
-    {!validation&&<button className="button-primary create-subject" data-testid="button-create-subject" type="submit">Create subject <ArrowRight size={18}/></button>}<button type="button" className={`button-outline cancel-subject ${validation?'validation-cancel':''}`} data-testid="button-cancel-subject" onClick={()=>go(validation?'/subject/add':'/subjects')}>Cancel</button>
+    {!validation&&<button className="button-primary create-subject" data-testid="button-create-subject" type="submit">Create subject <ArrowRight size={18}/></button>}<button type="button" className={`button-outline cancel-subject ${validation?'validation-cancel':''}`} data-testid="button-cancel-subject" onClick={()=>{if(validation)setSubjectDraft(draft);else setSubjectDraft(null);go(validation?'/subject/add':'/subjects');}}>Cancel</button>
   </form>
  </section></Frame>;
 }
 function QuizHome() {
- const [,go]=useLocation(); const [subjects]=useSaved<Subject[]>('study-subjects',starterSubjects);
- const shown=subjects.length?subjects:starterSubjects;
+  const [,go]=useLocation(); const {data,setSelectedSubject}=useStudyFlow(); const {subjects,quizAttempts}=data;
  return <Frame nav><section data-testid="screen-quiz-home" className="quiz-home">
   <h1 className="quiz-page-title">Quiz</h1><p className="subtitle">Test Your Knowledge, improve Your<br/> Understanding and track Your progress</p>
-  <div className="quiz-promo"><div><b>Small steps<br/> make big progress!</b><p>Take quizzes, learn faster.</p></div><div className="promo-mascot"><Bot size={62}/><BookOpen size={24}/></div></div>
+   <div className="quiz-promo"><div><b>Practice with<br/> sample questions</b><p>Offline sample bank · not AI-generated</p></div><div className="promo-mascot"><Bot size={62}/><BookOpen size={24}/></div></div>
   <div className="section-row"><h2>Your Subjects</h2><button data-testid="button-quiz-view-all" onClick={()=>go('/subjects')}>View All <ArrowRight size={18}/></button></div>
-  <div className="quiz-subjects">{shown.slice(0,4).map((s,i)=><button className="quiz-subject card" key={s.name} data-testid={`button-quiz-subject-${i}`} onClick={()=>go('/quiz/setup')}><DatabaseArt/><span><b>{s.name}</b><small>{[5,4,3,3][i%4]} quizzes · {[120,96,72,68][i%4]} questions</small></span><ChevronRight size={22}/></button>)}</div>
-  <div className="section-row recent-row"><h2>Recent Quiz Attempts</h2><button data-testid="button-recent-view-all" onClick={()=>go('/quiz/results')}>View All <ArrowRight size={18}/></button></div>
-  <button className="recent-quiz list-card" data-testid="button-recent-quiz" onClick={()=>go('/quiz/results')}><span className="success-ring">80%</span><span><b>DBMS- Unit 1</b><small>8/10 correct · 12 min ago</small></span><ChevronRight/></button>
+   {subjects.length===0?<div className="quiz-empty-inline"><img src={emptyBooks} alt=""/><h2>Add a subject before starting a quiz</h2><button className="button-primary" onClick={()=>go('/subjects')}>Explore subjects</button></div>
+    :<div className="quiz-subjects">{subjects.map((s,i)=>{const count=getSampleQuestions(s.name).length;return <button className="quiz-subject card" key={s.id} data-testid={`button-quiz-subject-${i}`} onClick={()=>{setSelectedSubject(s.id);go('/quiz/setup');}}><DatabaseArt/><span><b>{s.name}</b><small>{count?`${count} offline sample questions`:'No offline sample set'}</small></span><ChevronRight size={22}/></button>;})}</div>}
+   <div className="section-row recent-row"><h2>Recent Quiz Attempts</h2>{quizAttempts.length>0&&<button data-testid="button-recent-view-all" onClick={()=>go('/quiz/results')}>Latest <ArrowRight size={18}/></button>}</div>
+   {quizAttempts.length===0?<p className="quiz-no-attempts">No quiz attempts yet. Complete a quiz to see your results here.</p>:quizAttempts.slice(0,3).map(attempt=><button className="recent-quiz list-card" key={attempt.id} data-testid="button-recent-quiz" onClick={()=>go('/quiz/results')}><span className="success-ring">{Math.round(attempt.correct/attempt.total*100)}%</span><span><b>{attempt.subjectName}</b><small>{attempt.correct}/{attempt.total} correct · {new Date(attempt.completedAt).toLocaleDateString()}</small></span><ChevronRight/></button>)}
  </section></Frame>;
 }
 function QuizSetup() {
- const [,go]=useLocation(); const [difficulty,setDifficulty]=useState('Easy'); const [count,setCount]=useState(10); const [unit,setUnit]=useState('Unit 1: introduction to DBMS');
- return <Frame nav><section data-testid="screen-quiz-setup"><Header title="Quiz Setup" back="/quiz"/><div className="setup-subject"><DatabaseArt/><div><b>DBMS</b><small>{unit}</small></div><button data-testid="button-change-subject" onClick={()=>go('/quiz')}>Change</button></div>
-  <label className="setup-label">Select Topic/Unit<select className="input" value={unit} data-testid="select-quiz-unit" onChange={e=>setUnit(e.target.value)}>{['Unit 1: introduction to DBMS','Unit 2: Relational model','Unit 3: Normalization','Unit 4: Indexes'].map(x=><option key={x}>{x}</option>)}</select></label>
+  const [,go]=useLocation(); const {data,setSelectedSubject,setQuizSession}=useStudyFlow(); const [difficulty,setDifficulty]=useState('Easy'); const [count,setCount]=useState(5);
+  const subject=data.subjects.find(item=>item.id===data.selectedSubjectId)??data.subjects[0];
+  const bank=subject?getSampleQuestions(subject.name):[];
+  const topics=Array.from(new Set(bank.map(question=>question.topic)));
+  const [unit,setUnit]=useState('All topics');
+  const questions=unit==='All topics'?bank:bank.filter(question=>question.topic===unit);
+  const startQuiz=()=>{if(!subject||!questions.length)return;const selected=questions.slice(0,Math.min(count,questions.length));setSelectedSubject(subject.id);setQuizSession({subjectId:subject.id,difficulty,unit,questionIds:selected.map(q=>q.id),answers:selected.map(()=>null),currentIndex:0,startedAt:Date.now()});go('/quiz/question');};
+  return <Frame nav><section data-testid="screen-quiz-setup"><Header title="Quiz Setup" back="/quiz"/>
+   {data.subjects.length===0?<div className="quiz-empty-inline"><h2>Add a subject to start a quiz</h2><button className="button-primary" onClick={()=>go('/subjects')}>Add subject</button></div>:<>
+   <div className="setup-subject"><DatabaseArt/><div><b>{subject?.name}</b><small>{unit}</small></div><button data-testid="button-change-subject" onClick={()=>go('/quiz')}>Change</button></div>
+   <label className="setup-label">Subject<select className="input" value={subject?.id??''} data-testid="select-quiz-subject" onChange={e=>{setSelectedSubject(e.target.value);setUnit('All topics');}}>{data.subjects.map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+   <label className="setup-label">Select Topic/Unit<select className="input" value={unit} data-testid="select-quiz-unit" onChange={e=>setUnit(e.target.value)}><option>All topics</option>{topics.map(topic=><option key={topic}>{topic}</option>)}</select></label>
   <fieldset className="choice-field"><legend>Difficulty Level</legend><div className="choice-row">{['Easy','Medium','Hard'].map(x=><button key={x} data-testid={`button-difficulty-${x.toLowerCase()}`} className={`difficulty ${difficulty===x?'selected '+x.toLowerCase():''}`} onClick={()=>setDifficulty(x)}>{x}</button>)}</div></fieldset>
-  <fieldset className="choice-field"><legend>Number of Questions</legend><div className="choice-row question-count">{[5,10,15,20].map(x=><button key={x} data-testid={`button-question-count-${x}`} className={count===x?'selected':''} onClick={()=>setCount(x)}>{x}</button>)}</div></fieldset>
-  <div className="ai-quiz-note"><Sparkles size={23}/><div><b>AI Powered Quiz</b><p>We’ll generate questions based on<br/> your selected topic and difficulty level</p></div></div>
-  <Action testId="button-generate-quiz" onClick={()=>go('/quiz/question')}>Generate Quiz</Action>
+   <fieldset className="choice-field"><legend>Number of Questions</legend><div className="choice-row question-count">{[5,10,15,20].map(x=><button type="button" key={x} data-testid={`button-question-count-${x}`} disabled={x>questions.length} className={count===x?'selected':''} onClick={()=>setCount(x)}>{x}</button>)}</div></fieldset>
+   <div className="ai-quiz-note"><Sparkles size={23}/><div><b>Offline sample quiz</b><p>{bank.length?`${questions.length} sample questions available for this subject. No AI questions are generated.`:'No offline sample bank for this subject. Gemini quiz generation is not connected.'}</p></div></div>
+   <button className="button-primary" type="button" data-testid="button-generate-quiz" onClick={startQuiz} disabled={!questions.length}>Start sample quiz</button>
+   </>}
  </section></Frame>;
 }
 function QuizQuestion() {
- const [,go]=useLocation(); const [selected,setSelected]=useState('B'); const time='08:45';
+  const [,go]=useLocation(); const {data,setQuizSession,saveQuizAttempt}=useStudyFlow(); const session=data.quizSession;
+  const subject=session?data.subjects.find(item=>item.id===session.subjectId):undefined;
+  const bank=subject?getSampleQuestions(subject.name):[];
+  const questions=session?session.questionIds.map(id=>bank.find(question=>question.id===id)).filter((question):question is NonNullable<typeof question>=>Boolean(question)):[];
+  const current=session?questions[session.currentIndex]:undefined;
+  const finish=()=>{if(!session||!subject||questions.length===0)return;const answers:QuizAnswer[]=questions.map((question,index)=>({questionId:question.id,selectedOption:session.answers[index]??-1,correctOption:question.correctOption,topic:question.topic}));const correct=answers.filter(answer=>answer.selectedOption===answer.correctOption).length;saveQuizAttempt({subjectId:subject.id,subjectName:subject.name,durationSeconds:Math.max(0,Math.round((Date.now()-session.startedAt)/1000)),total:questions.length,correct,answers});go('/quiz/results');};
+  if(!session||!current||!subject)return <Frame nav><section className="quiz-empty-inline"><h2>No quiz is in progress</h2><button className="button-primary" onClick={()=>go('/quiz')}>Return to quizzes</button></section></Frame>;
+  const selectAnswer=(answer:number)=>setQuizSession({...session,answers:session.answers.map((item,index)=>index===session.currentIndex?answer:item)});
+  const selected=session.answers[session.currentIndex];
  return <Frame><section data-testid="screen-quiz-question" className="question-page">
-  <div className="question-header"><Header title="DBMS Quiz" back="/quiz/setup"/><span>3/10　{time}</span></div>
-  <div className="progress-bar quiz-progress"><span style={{width:'25%'}}/></div>
-  <article className="question-card card"><span className="question-type">Multiple choice</span><h2>Which of the following is the primary key characteristic of a DBMS</h2>
-   <div className="answers">{[['A','Data independence'],['B','Reduced data redundancy'],['C','increased data duplication'],['D','Faster transaction speed']].map(([letter,text])=><button key={letter} className={`answer ${selected===letter?'picked':''}`} data-testid={`button-answer-${letter.toLowerCase()}`} onClick={()=>setSelected(letter)}><i>{selected===letter&&<span/>}</i><b>{letter}.</b>{text}</button>)}</div>
+   <div className="question-header"><Header title={`${subject.name} sample quiz`} back="/quiz/setup"/><span>{session.currentIndex+1}/{questions.length}</span></div>
+   <p className="sample-quiz-disclaimer">Offline sample questions · not AI-generated</p>
+   <div className="progress-bar quiz-progress"><span style={{width:`${(session.currentIndex+1)/questions.length*100}%`}}/></div>
+   <article className="question-card card"><span className="question-type">{current.topic} · {session.difficulty}</span><h2>{current.question}</h2>
+    <div className="answers">{current.options.map((text,index)=><button key={text} className={`answer ${selected===index?'picked':''}`} data-testid={`button-answer-${String.fromCharCode(97+index)}`} onClick={()=>selectAnswer(index)}><i>{selected===index&&<span/>}</i><b>{String.fromCharCode(65+index)}.</b>{text}</button>)}</div>
   </article>
-  <div className="question-controls"><button data-testid="button-previous-question" onClick={()=>go('/quiz/setup')}><ChevronLeft/> Previous</button><button data-testid="button-next-question" onClick={()=>go('/quiz/results')}>Next <ArrowRight size={19}/></button></div>
+   <div className="question-controls"><button data-testid="button-previous-question" disabled={session.currentIndex===0} onClick={()=>setQuizSession({...session,currentIndex:session.currentIndex-1})}><ChevronLeft/> Previous</button><button data-testid="button-next-question" disabled={selected===null} onClick={()=>{if(session.currentIndex<questions.length-1)setQuizSession({...session,currentIndex:session.currentIndex+1});else finish();}}>{session.currentIndex===questions.length-1?'Submit quiz':'Next'} <ArrowRight size={19}/></button></div>
  </section></Frame>;
 }
 function QuizResults() {
- const [,go]=useLocation();
+  const [,go]=useLocation(); const {data}=useStudyFlow(); const attempt=data.quizAttempts.find(item=>item.id===data.lastQuizAttemptId);
+  if(!attempt)return <EmptyQuizAttempts/>;
+  const incorrect=attempt.total-attempt.correct;
+  const percent=Math.round(attempt.correct/attempt.total*100);
  return <Frame nav><section data-testid="screen-quiz-results" className="results-page"><Header title="Quiz results" back="/quiz"/>
-  <div className="trophy-art"><img src={trophyIllustration} alt="" /></div><h1 className="center result-title">Great job!</h1><p className="subtitle center">You’ve Completed the quiz successfully.</p>
-  <div className="result-card card"><div className="result-ring"><strong>80%</strong></div><div className="result-stats"><p><CircleCheck/> <b>8</b> Correct</p><p><CircleX/> <b>2</b> Incorrect</p><p><AlarmClock/> <b>12m 34s</b><small>Time Taken</small></p></div></div>
-  <div className="insight-card card"><div><Lightbulb size={28}/><h2>AI Insight</h2></div><p>You did great! You have a strong<br/> grasp of the topic. Focus more on<br/> normalization concepts to improve<br/> your score further</p></div>
-  <Action testId="button-try-again" onClick={()=>go('/quiz/question')}>Try Again</Action><button className="back-quiz" data-testid="button-back-to-quiz" onClick={()=>go('/quiz')}>Back to quiz</button>
+   <div className="trophy-art"><img src={trophyIllustration} alt="" /></div><h1 className="center result-title">Quiz completed</h1><p className="subtitle center">{attempt.subjectName} · saved on {new Date(attempt.completedAt).toLocaleDateString()}</p>
+   <div className="result-card card"><div className="result-ring"><strong>{percent}%</strong></div><div className="result-stats"><p><CircleCheck/> <b>{attempt.correct}</b> Correct</p><p><CircleX/> <b>{incorrect}</b> Incorrect</p><p><AlarmClock/> <b>{Math.floor(attempt.durationSeconds/60)}m {attempt.durationSeconds%60}s</b><small>Time Taken</small></p></div></div>
+   <div className="insight-card card"><div><Lightbulb size={28}/><h2>Review answers</h2></div><p>This result is calculated from your<br/> selected answers. AI analysis is<br/> not connected.</p></div>
+   <Action testId="button-try-again" onClick={()=>go('/quiz/setup')}>Try Again</Action><button className="back-quiz" data-testid="button-back-to-quiz" onClick={()=>go('/quiz')}>Back to quiz</button>
  </section></Frame>;
 }
 function Progress() {
- const [,go]=useLocation();
- const bars=[40,70,45,90,65,85];
- return <Frame nav><section data-testid="screen-progress" className="progress-page"><h1 className="section-head">Progress</h1><p className="subtitle">Track your preparation and stay on top of your<br/> goal.</p>
-  <div className="overall-card card"><div><h2>Overall progress</h2><p>Your preparation at a glance</p></div><div className="overall-main"><div className="result-ring small-ring"><strong>62%</strong></div><div className="chart-bars">{bars.map((n,i)=><div key={i}><b>{n}</b><span style={{height:`${n}%`}}/><small>may-{4+i}</small></div>)}</div></div>
-  <div className="progress-stats"><div><Clock3/><span>Study Time<b>42.5 hrs</b></span></div><div><Target/><span>Quiz accuracy<b>76%</b></span></div><div><Flame/><span>Days Streak<b>6 Days</b></span></div></div></div>
-  <div className="section-row subject-wise"><h2>Subject-Wise Progress</h2><Link href="/subjects" data-testid="link-progress-view-all">View All</Link></div>
-  <div className="progress-grid">{[['DBMS',72],['Operating System',58],['Computer Network',45],['Software Engineering',68]].map(([n,p],i)=><button className="progress-subject card" key={n} data-testid={`card-progress-${i}`} onClick={()=>go('/subject/overview')}><DatabaseArt/><div><b>{n}</b><small>{['12/16 topics','9/15 topics','7/15 Topics','11/16 Topics'][i]}</small><strong>{p}%</strong><div className="progress-bar"><span style={{width:`${p}%`}}/></div></div></button>)}</div>
-  <button className="recommend-banner" data-testid="button-progress-recommendations" onClick={()=>go('/subject/recommendations')}><Lightbulb/><span><b>AI Recommendations</b><small>Focus on weak and get personalized<br/> study suggestions.</small></span></button>
- </section></Frame>;
+  const [,go]=useLocation();const {data,setSelectedSubject}=useStudyFlow();
+  const tasks=data.studyPlan?.tasks??[];
+  const completed=tasks.filter(task=>task.completedAt).length;
+  const totalCorrect=data.quizAttempts.reduce((sum,attempt)=>sum+attempt.correct,0);
+  const totalQuestions=data.quizAttempts.reduce((sum,attempt)=>sum+attempt.total,0);
+  if(!tasks.length&&!data.quizAttempts.length)return <EmptyProgress/>;
+  const progressValue=tasks.length?Math.round(completed/tasks.length*100):Math.round(totalCorrect/Math.max(1,totalQuestions)*100);
+  const metricLabel=tasks.length?'Plan tasks complete':'Quiz accuracy';
+  const subjectActivity=data.subjects.map(subject=>{
+    const attempts=data.quizAttempts.filter(attempt=>attempt.subjectId===subject.id);
+    const subjectTasks=tasks.filter(task=>task.subjectId===subject.id);
+    const correct=attempts.reduce((sum,attempt)=>sum+attempt.correct,0);
+    const questions=attempts.reduce((sum,attempt)=>sum+attempt.total,0);
+    return {subject,attempts:attempts.length,accuracy:questions?Math.round(correct/questions*100):null,done:subjectTasks.filter(task=>task.completedAt).length,total:subjectTasks.length};
+  });
+  return <Frame nav><section data-testid="screen-progress" className="progress-page"><h1 className="section-head">Progress</h1><p className="subtitle">Your saved study and quiz activity.</p>
+   <div className="overall-card card"><div><h2>Activity overview</h2><p>Calculated from completed work only</p></div><div className="overall-main"><div className="result-ring small-ring"><strong>{progressValue}%</strong></div><div className="progress-summary"><b>{metricLabel}</b><span>{tasks.length?`${completed} of ${tasks.length} tasks complete`:`${totalCorrect} of ${totalQuestions} answers correct`}</span><small>{data.quizAttempts.length} quiz attempt{data.quizAttempts.length===1?'':'s'} · {completed} completed task{completed===1?'':'s'}</small></div></div>
+   <div className="progress-stats"><div><CircleHelp/><span>Quiz attempts<b>{data.quizAttempts.length}</b></span></div><div><CircleCheck/><span>Tasks done<b>{completed}</b></span></div><div><BookOpen/><span>Subjects<b>{data.subjects.length}</b></span></div></div></div>
+   <div className="section-row subject-wise"><h2>Subject-Wise Activity</h2><Link href="/subjects" data-testid="link-progress-view-all">View All</Link></div>
+   <div className="progress-grid">{subjectActivity.map(({subject,attempts,accuracy,done,total},i)=><button className="progress-subject card" key={subject.id} data-testid={`card-progress-${i}`} onClick={()=>{setSelectedSubject(subject.id);go('/subject/overview');}}><DatabaseArt/><div><b>{subject.name}</b><small>{attempts?`${attempts} quiz${attempts===1?'':'zes'}`:'No quiz attempts'}{total?` · ${done}/${total} tasks`:''}</small><strong>{accuracy===null?'—':`${accuracy}%`}</strong>{total>0&&<div className="progress-bar"><span style={{width:`${Math.round(done/total*100)}%`}}/></div>}</div></button>)}</div>
+   <button className="recommend-banner" data-testid="button-progress-recommendations" onClick={()=>{const subject=data.subjects[0];if(subject){setSelectedSubject(subject.id);go('/subject/weakness');}}}><Lightbulb/><span><b>Review incorrect answers</b><small>See topics where your recent quiz<br/> answers need another look.</small></span></button>
+  </section></Frame>;
 }
 const tabs=[['Overview','/subject/overview'],['Weakness','/subject/weakness'],['Recommendations','/subject/recommendations']] as const;
-function SubjectTop({active}:{active:string}) {
- const [,go]=useLocation();
- return <><Header title="DBMS" back="/subjects" right={<span className="icon-btn" data-testid="icon-subject-menu" aria-label="Subject menu"><MoreVertical/></span>}/><div className="subject-summary card"><DatabaseArt/><div><b>Database Management<br/> System</b><small>9/15 topics completed</small></div><div className="mini-ring summary-ring"><b>72%</b></div></div>
- <nav className="subject-tabs">{tabs.map(([label,path])=><button key={path} data-testid={`button-subject-tab-${label.toLowerCase()}`} className={active===label?'active':''} onClick={()=>go(path)}>{label}</button>)}</nav></>;
+function NoSubjectSelected(){const [,go]=useLocation();return <Frame nav><section className="empty-state"><h2>Select a subject first</h2><p>Choose a subject from your list to see its details.</p><button className="button-primary" onClick={()=>go('/subjects')}>Go to subjects</button></section></Frame>}
+function MaterialLibrary({subjectOnly=false}:{subjectOnly?:boolean}) {
+  const {data,addMaterial,deleteMaterial}=useStudyFlow();
+  const [,go]=useLocation();
+  const selectedSubject=data.subjects.find(item=>item.id===data.selectedSubjectId);
+  const groups=subjectOnly
+    ? selectedSubject?[{subject:selectedSubject,materials:data.materials.filter(item=>item.subjectId===selectedSubject.id)}]:[]
+    : data.subjects.map(subject=>({subject,materials:data.materials.filter(item=>item.subjectId===subject.id)}));
+  if(subjectOnly&&!selectedSubject)return <NoSubjectSelected/>;
+  const addLink=(subject:Subject)=>{
+    const name=window.prompt(`Name this resource for ${subject.name}`)?.trim();
+    if(!name)return;
+    const rawUrl=window.prompt('Paste an http or https link');
+    if(!rawUrl)return;
+    try{
+      const url=new URL(rawUrl.trim());
+      if(url.protocol!=='https:'&&url.protocol!=='http:')throw new Error('Use an http or https link.');
+      addMaterial({subjectId:subject.id,name,type:'link',size:0,sourceUrl:url.href});
+    }catch{window.alert('Enter a valid http or https URL.');}
+  };
+  return <Frame nav><section className="materials-page" data-testid={subjectOnly?'screen-subject-materials':'screen-materials'}>
+    <Header title={subjectOnly?'Subject materials':'Materials'} back={subjectOnly?'/subject/overview':'/study-plan/resources'}/>
+    <p className="subtitle">{subjectOnly?`Resources saved for ${selectedSubject?.name}.`:'Manage resource links for your subjects.'}</p>
+    {data.subjects.length===0?<div className="materials-empty-content"><img src={materialsEmptyArt} alt=""/><h2>Add a subject first</h2><p>Create a subject before saving resource links.</p><button className="button-primary" onClick={()=>go('/subjects')}>Explore subjects</button></div>:
+    <div className="materials-groups">{groups.map(group=><section className="material-subject-card card" key={group.subject.id}>
+      <header><h2>{group.subject.name}</h2><button className="button-outline" type="button" onClick={()=>addLink(group.subject)}><Plus size={17}/> Add link</button></header>
+      {group.materials.length===0?<p className="subject-no-data">No resources saved for this subject.</p>:group.materials.map(material=><article className="material-list-row" key={material.id}>
+        <FileText size={22}/><div><b>{material.name}</b><small>{material.sourceUrl?'External link · metadata saved locally':'File bytes are not stored'}</small></div>
+        {material.sourceUrl&&<button type="button" aria-label={`Open ${material.name}`} onClick={()=>window.open(material.sourceUrl,'_blank','noopener,noreferrer')}>Open</button>}
+        <button type="button" aria-label={`Remove ${material.name}`} onClick={()=>{if(window.confirm(`Remove ${material.name}?`))deleteMaterial(material.id);}}><X size={18}/></button>
+      </article>)}
+    </section>)}</div>}
+    {data.subjects.length>0&&<label className="material-upload-control"><CloudUpload size={18}/> Upload a file<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.png" onChange={event=>{if(event.target.files?.length)go('/materials/upload-failed');}}/></label>}
+    <p className="materials-storage-note">Resource links are stored locally. Secure file uploads and document summaries are not connected.</p>
+  </section></Frame>;
+}
+function MaterialsLibraryRoute(){return <MaterialLibrary/>}
+function SubjectChat() {
+  const {data,addChatMessage}=useStudyFlow();
+  const [,go]=useLocation();
+  const subject=data.subjects.find(item=>item.id===data.selectedSubjectId);
+  const [draft,setDraft]=useState('');
+  if(!subject)return <NoSubjectSelected/>;
+  const messages=data.chats[subject.id]??[];
+  const send=(event:FormEvent)=>{
+    event.preventDefault();
+    const text=draft.trim();
+    if(!text)return;
+    addChatMessage(subject.id,{role:'user',text});
+    addChatMessage(subject.id,{role:'system',text:'Not sent: Gemini is not connected. This message is saved in this browser only.'});
+    setDraft('');
+  };
+  return <Frame nav><section className="subject-chat-page" data-testid="screen-subject-chat">
+    <Header title={`${subject.name} assistant`} back="/subject/overview"/>
+    <p className="chat-connection-note">Gemini is not connected. Messages are saved locally and are not sent to an AI service.</p>
+    <div className="subject-chat-history" aria-live="polite">
+      {!messages.length&&<div className="chat-empty"><Bot size={38}/><h2>Ask about {subject.name}</h2><p>Your subject-specific chat history will appear here.</p></div>}
+      {messages.map(message=><article key={message.id} className={`subject-chat-message ${message.role}`}><small>{message.role==='user'?'You':'Delivery status'}</small><p>{message.text}</p></article>)}
+    </div>
+    <form className="subject-chat-composer" onSubmit={send}><textarea aria-label="Message" placeholder={`Ask about ${subject.name}`} value={draft} onChange={event=>setDraft(event.target.value)} maxLength={2000}/><button className="button-primary" type="submit" disabled={!draft.trim()}>Save message</button></form>
+  </section></Frame>;
+}
+function AssistantEntry(){const {data}=useStudyFlow();return data.subjects.length?<SubjectChat/>:<NoSubjectSelected/>}
+function AIUnavailablePage(){const [,go]=useLocation();return <Frame nav><section className="ai-unavailable-page"><Header title="AI assistant" back="/subjects"/><div className="ai-unavailable-content"><Bot size={46}/><h2>AI service not connected</h2><p>Gemini is not configured. No AI answers, summaries, or recommendations are being generated.</p><button className="button-outline" onClick={()=>go('/settings/ai')}>View AI settings</button></div></section></Frame>}
+function MaterialSummaryUnavailable(){const [,go]=useLocation();return <Frame nav><section className="ai-unavailable-page"><Header title="Material summary" back="/study-plan/resources"/><div className="ai-unavailable-content"><FileText size={46}/><h2>Document summaries are unavailable</h2><p>File storage and document processing are not connected. No file content was uploaded or analyzed.</p><button className="button-outline" onClick={()=>go('/materials')}>Open materials</button></div></section></Frame>}
+function SubjectTop({active,subject}:{active:string;subject:Subject}) {
+  const {data,updateSubject,deleteSubject}=useStudyFlow(); const [,go]=useLocation();
+  const attempts=data.quizAttempts.filter(attempt=>attempt.subjectId===subject.id).length;
+  const materials=data.materials.filter(material=>material.subjectId===subject.id).length;
+  const tasks=data.studyPlan?.tasks.filter(task=>task.subjectId===subject.id)??[];
+  const completed=tasks.filter(task=>task.completedAt).length;
+  return <><Header title={subject.name} back="/subjects" right={<button className="icon-btn" type="button" data-testid="icon-subject-menu" aria-label="Subject options" onClick={()=>{const choice=window.prompt(`Subject options for ${subject.name}: type rename or delete`);if(choice?.toLowerCase()==='rename'){const name=window.prompt('Rename subject',subject.name)?.trim();if(name)updateSubject(subject.id,{name});}else if(choice?.toLowerCase()==='delete'&&window.confirm(`Delete ${subject.name}?`)){deleteSubject(subject.id);go('/subjects');}}}><MoreVertical/></button>}/><div className="subject-summary card"><DatabaseArt/><div><b>{subject.name}</b><small>{attempts} quiz attempts · {materials} materials</small></div>{tasks.length>0&&<div className="mini-ring summary-ring" style={{'--pct':`${Math.round(completed/tasks.length*100)}%`} as React.CSSProperties}><b>{Math.round(completed/tasks.length*100)}%</b></div>}</div>
+  <nav className="subject-tabs">{tabs.map(([label,path])=><button key={path} data-testid={`button-subject-tab-${label.toLowerCase()}`} className={active===label?'active':''} onClick={()=>go(path)}>{label}</button>)}</nav></>;
 }
 function SubjectOverview() {
- const [,go]=useLocation();
- const topics=[['Introduction to DBMS',100],['Relational model',100],['Normalization',75],['Indexes',50],['Transactions',25]];
- return <Frame nav><section data-testid="screen-subject-overview" className="subject-detail"><SubjectTop active="Overview"/><div className="overview-panel"><h2>Subject Overview</h2><div className="metric-cards"><div><Clock3/><b>12.3 h</b><span>Study Time</span></div><div><Target/><b>78%</b><span>Accuracy</span></div><div><FileText/><b>12/16</b><span>Topics done</span></div></div><h3>Topic Progress</h3>
-  {topics.map(([name,p],i)=><div className="topic-row" key={name} data-testid={`row-topic-${i}`}><span className={Number(p)===100?'topic-check':'topic-empty'}><CircleCheck/></span><div><small>{name}</small><div className="progress-bar"><span style={{width:`${p}%`}}/></div></div><b>{p}%</b><ChevronRight size={20}/></div>)}
- </div><button className="recommend-banner detail-recommend" data-testid="button-open-recommendations" onClick={()=>go('/subject/recommendations')}><Sparkles/><span><b>AI Recommendations</b><small>Focus on Normalization & indexes</small></span></button></section></Frame>;
+  const [,go]=useLocation();const {data}=useStudyFlow();const subject=data.subjects.find(item=>item.id===data.selectedSubjectId);if(!subject)return <NoSubjectSelected/>;
+  const attempts=data.quizAttempts.filter(attempt=>attempt.subjectId===subject.id);
+  const tasks=data.studyPlan?.tasks.filter(task=>task.subjectId===subject.id)??[];
+  const materials=data.materials.filter(material=>material.subjectId===subject.id);
+  const correct=attempts.reduce((sum,attempt)=>sum+attempt.correct,0);const total=attempts.reduce((sum,attempt)=>sum+attempt.total,0);
+  const topicResults=new Map<string,{correct:number;total:number}>();
+  attempts.forEach(attempt=>attempt.answers.forEach(answer=>{const existing=topicResults.get(answer.topic)??{correct:0,total:0};existing.total++;if(answer.selectedOption===answer.correctOption)existing.correct++;topicResults.set(answer.topic,existing);}));
+  return <Frame nav><section data-testid="screen-subject-overview" className="subject-detail"><SubjectTop subject={subject} active="Overview"/><div className="overview-panel"><h2>Subject Overview</h2><div className="metric-cards"><div><CircleHelp/><b>{attempts.length}</b><span>Quiz attempts</span></div><div><Target/><b>{total?`${Math.round(correct/total*100)}%`:'—'}</b><span>Quiz accuracy</span></div><div><FileText/><b>{tasks.length?`${tasks.filter(task=>task.completedAt).length}/${tasks.length}`:'—'}</b><span>Tasks done</span></div></div><h3>Study materials</h3>
+   {materials.length?materials.map((material,i)=><button className="topic-row" type="button" key={material.id} data-testid={`row-topic-${i}`} onClick={()=>go('/subject/materials')}><span className="topic-check"><FileText/></span><div><small>{material.name}</small><small>{material.type.toUpperCase()}</small></div><ChevronRight size={20}/></button>):<p className="subject-no-data">No materials have been added for {subject.name}.</p>}
+   <div className="subject-actions-row"><button className="button-outline" onClick={()=>go('/subject/materials')} data-testid="button-subject-materials">Materials</button><button className="button-primary" onClick={()=>go('/subject/chat')} data-testid="button-subject-chat">Ask about {subject.name}</button></div>
+   {topicResults.size>0&&<div className="subject-topic-results"><h3>Quiz topics</h3>{Array.from(topicResults,([topic,result])=><div className="topic-row" key={topic}><span className={result.correct===result.total?'topic-check':'topic-empty'}><CircleCheck/></span><div><small>{topic}</small><small>{result.correct}/{result.total} correct</small></div><ChevronRight size={20}/></div>)}</div>}
+  </div><button className="recommend-banner detail-recommend" data-testid="button-open-recommendations" onClick={()=>go('/subject/weakness')}><Sparkles/><span><b>Review quiz topics</b><small>Open your topic accuracy and missed answers.</small></span></button></section></Frame>;
 }
 function Weakness() {
- const concerns=[['Normalization','Low accuracy in quizzes','High'],['Indexes','Concepts need revision','Medium'],['Transactions','Struggled in last 2 quizzes','Medium']];
- return <Frame nav><section data-testid="screen-subject-weakness" className="subject-detail"><SubjectTop active="Weakness"/><div className="weakness-panel"><h2>Weak Areas</h2><p>Focus more on these topics to improve your score<br/> and overall understanding</p><div className="attention"><CircleHelp/> 3 topics need more attention</div>{concerns.map(([name,desc,level],i)=><div className="weak-row" key={name} data-testid={`row-weak-area-${i}`}><span className="rank">{i+1}</span><span className="weak-copy"><b>{name}</b><small>{desc}</small></span><em className={level.toLowerCase()}>{level}</em><ChevronRight/></div>)}</div>
-  <div className="suggestions card"><h2><Bot/> AI Recommendations</h2><p>Personalized suggestions for better results</p>{['Revise normalization concepts with short notes and practice MCQs','Watch a 10-min video on indexes and solve related questions','Take a subject-wise quiz for DBMS (5 questions)'].map((s,i)=><div className="suggestion-row" key={s}><span>{i+1}</span>{s}</div>)}</div>
- </section></Frame>;
+  const {data}=useStudyFlow();const subject=data.subjects.find(item=>item.id===data.selectedSubjectId);if(!subject)return <NoSubjectSelected/>;
+  const attempts=data.quizAttempts.filter(attempt=>attempt.subjectId===subject.id);const results=new Map<string,{incorrect:number;total:number}>();
+  attempts.forEach(attempt=>attempt.answers.forEach(answer=>{const item=results.get(answer.topic)??{incorrect:0,total:0};item.total++;if(answer.selectedOption!==answer.correctOption)item.incorrect++;results.set(answer.topic,item);}));
+  const concerns=Array.from(results,([topic,value])=>({topic,...value})).filter(item=>item.incorrect>0).sort((a,b)=>b.incorrect-a.incorrect);
+  return <Frame nav><section data-testid="screen-subject-weakness" className="subject-detail"><SubjectTop subject={subject} active="Weakness"/><div className="weakness-panel"><h2>Topics to review</h2><p>Based on your saved sample quiz answers for {subject.name}.</p>{concerns.length===0?<p className="subject-no-data">{attempts.length?'No incorrect answers recorded yet.':'Complete a quiz to see topic-level results.'}</p>:<><div className="attention"><CircleHelp/> {concerns.length} topic{concerns.length===1?'':'s'} with missed answers</div>{concerns.map((item,i)=><div className="weak-row" key={item.topic} data-testid={`row-weak-area-${i}`}><span className="rank">{i+1}</span><span className="weak-copy"><b>{item.topic}</b><small>{item.incorrect} of {item.total} answers incorrect</small></span><em className={item.incorrect===item.total?'high':'medium'}>{Math.round((item.total-item.incorrect)/item.total*100)}% correct</em><ChevronRight/></div>)}</>}</div>
+   <div className="suggestions card"><h2><Bot/> AI insights unavailable</h2><p>Gemini is not connected. The topic list above uses only your recorded quiz answers.</p></div>
+  </section></Frame>;
 }
 function Recommendations() {
- const [,go]=useLocation(); const recs:[string,string,LucideIcon][]=[['Personalized study plan','Focus on weak topics and improve accuracy',Target],['Recommended Topics','Normalization,indexes,transactions',BookOpen],['Practice quizzes','5 Topics - wise quizzes suggested',CircleHelp],['Next study step','Revise notes and take a full mock test',CalendarClock]];
-  return <Frame nav><section data-testid="screen-subject-recommendations" className="subject-detail recommendations"><SubjectTop active="Recommendations"/><div className="recommend-panel"><h2>AI Recommendations</h2><p>Personalized study plan based on your performance<br/> and goals</p>{recs.map(([name,desc,Icon],i)=><div className="reco-row" key={String(name)} data-testid={`text-recommendation-${i}`}><Icon size={24}/><span><b>{name}</b><small>{desc}</small></span><ChevronRight/></div>)}</div><Action testId="button-start-study-plan" onClick={()=>go('/study-plan/generating')}>Start Study plan</Action></section></Frame>;
+  const [,go]=useLocation();const {data}=useStudyFlow();const subject=data.subjects.find(item=>item.id===data.selectedSubjectId);if(!subject)return <NoSubjectSelected/>;
+  const incorrect=data.quizAttempts.filter(attempt=>attempt.subjectId===subject.id).flatMap(attempt=>attempt.answers.filter(answer=>answer.selectedOption!==answer.correctOption));
+  return <Frame nav><section data-testid="screen-subject-recommendations" className="subject-detail recommendations"><SubjectTop subject={subject} active="Recommendations"/><div className="recommend-panel"><h2>Study suggestions</h2><p>Suggestions below are based on your actual activity.</p>{incorrect.length?Array.from(new Set(incorrect.map(answer=>answer.topic))).map((topic,i)=><div className="reco-row" key={topic} data-testid={`text-recommendation-${i}`}><Target size={24}/><span><b>Review {topic}</b><small>Missed questions were recorded for this topic.</small></span><ChevronRight/></div>):<p className="subject-no-data">Complete a sample quiz to get topic suggestions. No AI recommendations are being generated.</p>}</div><Action testId="button-start-study-plan" onClick={()=>go('/study-plan/days')}>Open Study Plan</Action></section></Frame>;
 }
 function ProfilePage() {
- const [profile]=useSaved<Profile>('study-profile',initialProfile); const [,go]=useLocation();
+  const {data}=useStudyFlow();const profile=data.profile; const [,go]=useLocation();
  return <Frame nav><section data-testid="screen-profile" className="profile-page"><h1 className="section-head">Profile</h1><p className="subtitle">Your study journey, your way</p><div className="profile-overview">
-   <div className="profile-avatar">{profile.avatar?<img src={profile.avatar} alt="Profile"/>:<img src={profileIllustration} alt="Profile"/>}</div><h2 data-testid="text-profile-name">{profile.name}</h2><p>{profile.email}</p></div>
-    <div className="profile-links"><div className="profile-link card" data-testid="card-profile-course"><GraduationCap/><span><b>{profile.course.includes('CSE')?'B.Tech computer science':profile.course}</b><small>{profile.college}</small></span><ChevronRight/></div>
+    <div className="profile-avatar">{profile.avatar?<img src={profile.avatar} alt="Profile"/>:<img src={profileIllustration} alt="Profile"/>}</div><h2 data-testid="text-profile-name">{profile.name||'Complete your profile'}</h2><p>{profile.email||'Add your contact details'}</p></div>
+     <div className="profile-links"><div className="profile-link card" data-testid="card-profile-course"><GraduationCap/><span><b>{profile.course.includes('CSE')?'B.Tech computer science':profile.course||'Course not set'}</b><small>{profile.college||'College not set'}</small></span><ChevronRight/></div>
    <button className="profile-link card" data-testid="button-edit-profile" onClick={()=>go('/profile/edit')}><UserRound/><span><b>Edit Profile</b><small>Update your personal information</small></span><ChevronRight/></button>
     <button type="button" className="profile-link card" data-testid="card-settings" onClick={()=>go('/settings')}><Settings/><span><b>Settings</b><small>Manage your app preference</small></span><ChevronRight/></button></div>
  </section></Frame>;
 }
 function EditProfile() {
- const [profile,save]=useSaved<Profile>('study-profile',initialProfile);
+  const {data,updateProfile}=useStudyFlow();const profile=data.profile; const [,go]=useLocation();
  const fields:[string,keyof Profile,typeof User][]=[['Full name','name',User],['Email Address','email',Mail],['College/University','college',Building2],['Course/ Branch','course',GraduationCap],['Daily study hours','hours',Clock3],['Target Score','score',Goal]];
  return <Frame nav><section data-testid="screen-edit-profile" className="edit-profile">
-  <div className="edit-heading"><h1 className="section-head">Edit Profile</h1><button data-testid="button-save-profile" onClick={()=>{localStorage.setItem('study-profile',JSON.stringify(profile));window.dispatchEvent(new Event('storage'));}} className="save-pill">Save</button></div>
+   <div className="edit-heading"><h1 className="section-head">Edit Profile</h1><button data-testid="button-save-profile" onClick={()=>go('/profile')} className="save-pill">Save</button></div>
   <div className="edit-avatar">{profile.avatar?<img src={profile.avatar} alt="Profile"/>:<img src={profileIllustration} alt="Profile"/>}</div>
   <form onSubmit={e=>{e.preventDefault();localStorage.setItem('study-profile',JSON.stringify(profile));}}>
-  {fields.map(([label,key,Icon])=><label className="edit-field" key={key}><Icon size={23}/><span>{label}{key==='email'||key==='name'||key==='college'||key==='course'?<input data-testid={`input-profile-${key}`} value={profile[key]} onChange={e=>save({...profile,[key]:e.target.value})}/>:<select className="input" data-testid={`select-profile-${key}`} value={profile[key]} onChange={e=>save({...profile,[key]:e.target.value})}>{(key==='hours'?['1 - 2 hours','2 - 3 hours','4 - 5 hours','6+ hours']:['60%','70%','80%','90%']).map(x=><option key={x}>{x}</option>)}</select>}</span></label>)}
+   {fields.map(([label,key,Icon])=><label className="edit-field" key={key}><Icon size={23}/><span>{label}{key==='email'||key==='name'||key==='college'||key==='course'?<input data-testid={`input-profile-${key}`} value={profile[key]} onChange={e=>updateProfile({[key]:e.target.value})}/>:<select className="input" data-testid={`select-profile-${key}`} value={profile[key]} onChange={e=>updateProfile(key==='hours'?{hours:e.target.value}:{score:e.target.value})}><option value="">Not set</option>{(key==='hours'?['1hr','2hrs','3hrs','4 - 5 hours','6+ hours']:['60%','70%','80%','90%']).map(x=><option key={x}>{x}</option>)}</select>}</span></label>)}
   </form>
  </section></Frame>;
 }
@@ -260,13 +399,14 @@ function AppRoutes() {
   <Route path="/add-subjects" component={AddSubjectsIntro}/><Route path="/dashboard" component={Dashboard}/>
   <Route path="/subjects/no-results" component={EmptySubjectsSearchRoute}/><Route path="/subjects/empty" component={EmptySubjectsRoute}/><Route path="/subjects" component={SubjectListRoute}/>
   <Route path="/subject/add/validation-error" component={AddSubjectValidation}/><Route path="/subject/add" component={AddSubjectForm}/>
-  <Route path="/materials/upload-failed" component={UploadFailure}/><Route path="/materials" component={EmptyMaterials}/>
+  <Route path="/materials/upload-failed" component={UploadFailure}/><Route path="/materials/empty" component={MaterialsLibraryRoute}/><Route path="/materials" component={MaterialsLibraryRoute}/>
   <Route path="/quiz/empty" component={EmptyQuizAttempts}/><Route path="/quiz" component={QuizHome}/><Route path="/quiz/setup" component={QuizSetup}/>
   <Route path="/quiz/question" component={QuizQuestion}/><Route path="/quiz/results" component={QuizResults}/>
   <Route path="/progress/empty" component={EmptyProgress}/><Route path="/progress" component={Progress}/>
-  <Route path="/settings" component={SettingsPage}/>
+  <Route path="/settings/study-reminders" component={SettingsInfoPage}/><Route path="/settings/appearance" component={SettingsInfoPage}/><Route path="/settings/ai" component={SettingsInfoPage}/><Route path="/settings/help" component={SettingsInfoPage}/><Route path="/settings/about" component={SettingsInfoPage}/><Route path="/settings/privacy" component={SettingsInfoPage}/><Route path="/settings" component={SettingsPage}/>
   <Route path="/notifications/empty" component={EmptyNotifications}/><Route path="/notifications" component={NotificationsList}/>
-  <Route path="/assistant/error" component={AssistantUnavailable}/><Route path="/assistant/chat" component={AssistantChat}/><Route path="/assistant/material-summary" component={MaterialSummary}/><Route path="/assistant" component={AssistantHome}/>
+  <Route path="/assistant/error" component={AIUnavailablePage}/><Route path="/assistant/chat" component={SubjectChat}/><Route path="/assistant/material-summary" component={MaterialSummaryUnavailable}/><Route path="/assistant" component={AssistantEntry}/>
+  <Route path="/subject/chat" component={SubjectChat}/><Route path="/subject/materials" component={()=> <MaterialLibrary subjectOnly/>}/>
   <Route path="/offline" component={OfflineScreen}/>
   <Route path="/study-plan/generating" component={PlanGenerating}/><Route path="/study-plan/generation-error" component={PlanGenerationFailure}/>
   <Route path="/study-plan/resources/empty" component={EmptyStudyPlanResources}/><Route path="/study-plan/resources" component={StudyPlanResources}/>
@@ -276,5 +416,5 @@ function AppRoutes() {
   <Route component={NotFound}/>
  </Switch>;
 }
-function App() { return <Router><AppRoutes/></Router>; }
+function App() { return <Router><StudyFlowProvider><AppRoutes/></StudyFlowProvider></Router>; }
 export default App;

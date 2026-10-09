@@ -1,0 +1,546 @@
+# STUDY FLOW — COMPLETE WORKFLOW, UI CORRECTION AND FUNCTIONALITY PROMPT
+
+## PROJECT INSTRUCTIONS
+
+My project is called Study Flow, an AI-powered study planner and learning application.
+
+The complete frontend UI has already been generated using my Figma screenshots. Approximately 60–70% of the design matches my expectations, but there are problems with alignment, default data, navigation, and workflow.
+
+Your task is to inspect and improve the EXISTING codebase.
+
+**Do not rebuild the project from scratch. Do not redesign my Figma screens. Do not remove working features.**
+
+First inspect the existing code, identify the current structure, and understand how the screens are implemented. Then make changes carefully, reusing existing components.
+
+My Figma screenshots are the visual source of truth.
+
+---
+
+## 1. UI ALIGNMENT AND DESIGN CORRECTIONS
+
+Fix existing visual issues without changing the intended design.
+
+Correct:
+
+* Misaligned text, icons, buttons, and cards.
+* Inconsistent padding, margins, and spacing.
+* Overlapping elements.
+* Incorrect card sizes and positioning.
+* Inconsistent typography and colors.
+* Broken mobile layouts and horizontal overflow.
+* Inconsistent headers and bottom navigation.
+* Missing icons or images.
+* Buttons that do not respond correctly.
+
+Preserve my existing colors, fonts, illustrations, layouts, border radii, shadows, and component styles wherever possible.
+
+Do not invent new screens or redesign components simply because you prefer another design.
+
+Prioritise accurate mobile rendering based on the original Figma screens.
+
+---
+
+## 2. MAIN NAVIGATION
+
+The application has exactly five primary bottom-navigation tabs:
+
+1. Home
+2. Subjects
+3. Quiz
+4. Progress
+5. Profile
+
+Keep the bottom navigation consistent across the main application screens.
+
+When a user selects a tab, show the correct section and highlight the selected tab.
+
+Do not add AI Study Plan or Notifications to the bottom navigation.
+
+The following navigation must be respected:
+
+* Home → View Plan → AI Study Plan
+* Home → Notification Bell → Notifications
+* Subjects tab → Subjects List
+* Subjects List → Selected Subject → Subject Detail
+* Subject Detail → Subject AI Chatbot
+* Quiz tab → Quiz Home → Quiz Setup → Questions → Results
+* Progress tab → Progress Overview → Subject Progress Details
+* Profile tab → Profile Overview → Edit Profile or Settings
+
+Do not randomly connect screens, cards, buttons, or tabs. Only implement the navigation specified in this prompt or clearly established by the existing design.
+
+---
+
+## 3. INITIAL DATA AND EMPTY STATES
+
+A new user must not see arbitrary subjects or fabricated activity.
+
+For a new user:
+
+* No subjects have been added.
+* No quiz attempts exist.
+* No completed study tasks exist.
+* No study plan exists until the required information is available.
+* No uploaded materials exist.
+* Progress starts at zero or displays the appropriate empty state.
+* Notifications are empty unless actual notifications exist.
+
+Do not preload DBMS, Operating Systems, Computer Networks, or any other subjects as real user data.
+
+Use the existing empty-state designs.
+
+When the user creates data, update the relevant screens accordingly. For example, adding a subject should update the Subjects list and make it available in Quiz and Progress.
+
+Do not fabricate quiz scores, progress percentages, completed tasks, notifications, or AI recommendations.
+
+Optional demo data may be available through an explicitly labelled demo mode, but it must not be mixed with real user data.
+
+---
+
+## 4. HOME TAB
+
+Home is the user's central dashboard.
+
+It may contain:
+
+* Personalised greeting.
+* Study goal and exam information.
+* Today's Focus.
+* Upcoming exam information.
+* Subject summary.
+* Study-plan summary.
+* Progress summary.
+* AI Assistant entry point.
+* Notification bell.
+* View Plan action.
+
+Use actual application data wherever possible.
+
+Interactions:
+
+* View Plan → AI Study Plan.
+* Notification bell → Notifications.
+* A subject card → the relevant Subject Detail screen.
+* A study task → its relevant task or subject details.
+* AI Assistant → the appropriate assistant interface.
+
+If no subjects exist, show the existing empty state with an Add Subject action.
+
+If no study plan exists, do not display invented tasks. Provide the appropriate next step.
+
+Home must reflect subject creation, study-task completion, quiz results, and profile updates.
+
+---
+
+## 5. SUBJECTS TAB — CORE LEARNING AREA
+
+The Subjects tab is the main learning area of Study Flow.
+
+Expected workflow:
+
+Subjects Tab
+→ Subjects List
+→ Add Subject or Select Existing Subject
+→ Subject Detail
+→ Subject AI Chatbot, Materials, Units, and Subject Progress
+
+### Subjects List
+
+Support:
+
+* Empty state.
+* Filled state.
+* Add Subject.
+* Search, if included in the existing UI.
+* Edit, rename, and delete actions where appropriate.
+
+When the user adds a subject, save it and display it in the list.
+
+Validate required fields and prevent empty or duplicate subject entries where appropriate.
+
+Ask for confirmation before deleting a subject.
+
+### Add Subject
+
+Use the existing design and fields, such as:
+
+* Subject name.
+* Exam date.
+* Goal or target.
+* Daily study preference, if applicable.
+* Materials, if included.
+
+After saving, return to the Subjects list and display the new subject.
+
+### Subject Detail
+
+Selecting a subject must open the detail screen for THAT subject.
+
+Use one reusable Subject Detail component rather than creating separate hardcoded pages for DBMS, Operating Systems, Computer Networks, and other subjects.
+
+The selected subject's ID and data must determine the displayed information.
+
+Subject Detail should provide access to:
+
+* Subject overview.
+* Units or topics.
+* Study materials.
+* Subject-specific AI chatbot.
+* Weak Areas or AI Insights when data is available.
+
+Most importantly, **every subject must have its own separate AI chatbot context inside the Subjects tab.**
+
+---
+
+## 6. SUBJECT-SPECIFIC AI CHATBOT — ESSENTIAL REQUIREMENT
+
+Implement a chatbot for every subject.
+
+The chatbot is NOT a separate bottom-navigation tab. It belongs inside the selected subject's area.
+
+Expected workflow:
+
+Subjects
+→ Select DBMS
+→ DBMS Subject Detail
+→ Ask AI / Chatbot
+→ DBMS Chat
+
+Similarly:
+
+Subjects
+→ Select Operating Systems
+→ Operating Systems Subject Detail
+→ Ask AI / Chatbot
+→ Operating Systems Chat
+
+The same reusable chatbot component may be used for every subject, but the conversation must be associated with the correct subject.
+
+### Chatbot requirements
+
+Each subject chatbot should support:
+
+* Asking questions about the subject.
+* Explaining difficult concepts in simple language.
+* Step-by-step explanations.
+* Examples.
+* Summarising topics.
+* Generating practice questions.
+* Helping the user understand mistakes.
+* Asking questions based on uploaded subject materials when supported.
+
+The chat header must show the selected subject's name.
+
+Maintain separate conversation histories for different subjects. A DBMS conversation must never appear in the Operating Systems chat.
+
+Store each conversation with the appropriate subject ID.
+
+If the user switches subjects and opens that subject's chatbot, load that subject's conversation or start a new conversation if none exists.
+
+Provide a clear way to return to Subject Detail without accidentally navigating to an unrelated screen.
+
+### AI behaviour
+
+Prepare the chatbot interface and service integration for Gemini AI.
+
+If Gemini is not yet connected:
+
+* Do not pretend that real AI responses are being generated.
+* Show a clear setup or unavailable state, or use an explicitly labelled demo mode.
+* Keep the chatbot interface ready for the real API integration.
+
+When Gemini is connected, send the selected subject name and relevant context with the user's question.
+
+When uploaded materials are supported, use the selected subject's materials as context rather than mixing materials from other subjects.
+
+Do not expose Gemini API keys in browser JavaScript or public frontend code. Use a secure backend endpoint for AI requests.
+
+### Subject-specific actions
+
+If supported by the existing design, allow the user to:
+
+* Open a document from the subject.
+* Ask the chatbot to summarise it.
+* Ask questions about its contents.
+* Generate practice questions from it.
+
+Do not claim that a document has been analysed unless the backend has actually processed it.
+
+---
+
+## 7. SUBJECT MATERIALS AND UNITS
+
+Inside each subject, support the existing material and unit organisation.
+
+Allow users to:
+
+* Add materials or upload supported files.
+* View available materials.
+* Organise resources by subject and unit.
+* Rename, replace, or delete materials where appropriate.
+* Open a material or display a suitable preview when supported.
+
+Validate file type and size. Show an error if an upload fails.
+
+Use an empty state when a subject has no materials.
+
+Do not mix files between subjects.
+
+Uploaded materials should later be available to the relevant subject chatbot and summarisation service.
+
+---
+
+## 8. QUIZ TAB
+
+Expected workflow:
+
+Quiz
+→ Quiz Home
+→ Select Subject
+→ Quiz Setup
+→ Questions
+→ Results
+
+The quiz setup must use subjects actually added by the user.
+
+If there are no subjects, show an appropriate empty state with an Add Subject action.
+
+Where supported by the design, allow the user to select:
+
+* Subject.
+* Topic.
+* Difficulty.
+* Number of questions.
+
+During the quiz:
+
+* Display one question at a time.
+* Allow answer selection.
+* Track the user's answers.
+* Support navigation between questions where designed.
+* Prevent accidental loss of answers.
+
+On submission:
+
+* Calculate the score accurately.
+* Display correct and incorrect answers.
+* Display the percentage score.
+* Display time taken when it is tracked.
+* Provide appropriate feedback.
+
+Save the completed attempt and update Progress.
+
+Do not fabricate quiz history.
+
+Prepare quiz generation for Gemini integration. Until the service is connected, use clearly labelled sample questions or an unavailable state rather than claiming that questions were generated by AI.
+
+---
+
+## 9. PROGRESS TAB
+
+Progress shows the user's actual learning activity.
+
+The overview may include:
+
+* Overall study progress.
+* Subject-wise progress.
+* Completed tasks.
+* Quiz attempts.
+* Quiz accuracy.
+* Study time, if tracked.
+* Progress charts.
+
+Selecting a subject opens its Subject Progress Details.
+
+Subject details may include:
+
+* Overview.
+* Weak Areas.
+* AI Insights.
+
+Calculate progress using a consistent, documented rule. Do not assign arbitrary progress percentages.
+
+When there is no activity, show the existing empty-progress state.
+
+AI-generated weak-topic analysis must only be shown as real analysis when sufficient quiz or learning data has been processed. Otherwise, display an appropriate empty, demo, or unavailable state.
+
+---
+
+## 10. PROFILE TAB
+
+Profile workflow:
+
+Profile
+→ Profile Overview
+→ Edit Profile or Settings
+
+Allow the user to edit supported profile fields and save changes.
+
+Use the saved profile details in the Home greeting and other relevant screens.
+
+Do not add a progress bar to Profile.
+
+Do not duplicate the Settings screen or create extra navigation tabs.
+
+---
+
+## 11. NOTIFICATIONS
+
+Notifications are opened from the Home notification bell.
+
+Support:
+
+* Notifications Available.
+* Notifications Empty.
+
+Use actual application events for notifications when possible, such as study reminders or upcoming exams.
+
+Do not fabricate notifications.
+
+If a notification is selected, open its relevant destination only when that destination is defined.
+
+Notification permissions and push notifications can be implemented later if required.
+
+---
+
+## 12. AI STUDY PLAN
+
+AI Study Plan is opened through:
+
+Home → View Plan → AI Study Plan
+
+Keep the existing sections:
+
+* Overview.
+* Study Plan.
+* Resources.
+
+### Overview
+
+Display the actual study-plan summary and relevant subject information.
+
+### Study Plan
+
+Display scheduled study tasks when a plan exists.
+
+Allow tasks to be marked complete and reflect completion consistently across Home and Progress.
+
+Do not generate an arbitrary plan when the required inputs are missing.
+
+Prepare the study-plan generation service for Gemini integration.
+
+### Resources
+
+Display resources organised by subject.
+
+Allow users to add and manage resources using the existing UI.
+
+Show the appropriate empty state when no resources exist.
+
+Do not add AI recommendations here if they duplicate the existing Progress → Subject Detail → AI Insights area.
+
+---
+
+## 13. DATA CONSISTENCY AND PERSISTENCE
+
+Inspect the current architecture before choosing an implementation.
+
+Use a shared state-management approach so all screens read and update the same underlying data.
+
+Keep separate data models for:
+
+* User profile.
+* Subjects.
+* Units and materials.
+* Subject chat histories.
+* Study plans and tasks.
+* Quiz questions and attempts.
+* Progress.
+* Notifications.
+
+Use stable IDs to associate materials, chat histories, tasks, and quiz results with the correct subject.
+
+For the frontend stage, use the existing state solution or local persistence if appropriate.
+
+User-created data should survive a page refresh where persistence is implemented.
+
+Do not add Firebase prematurely. Keep the architecture ready for Firebase authentication, Firestore, and Storage later.
+
+---
+
+## 14. NAVIGATION RULES — DO NOT GUESS
+
+Do not randomly connect screens.
+
+* Follow the navigation rules in this prompt.
+* Reuse existing screens and components.
+* Do not create a separate screen for each subject.
+* Do not create a separate chatbot implementation for each subject.
+* Use the selected subject ID to load the correct data.
+* Keep the AI chatbot inside the Subjects tab's subject-detail workflow.
+* Keep AI Study Plan outside the bottom navigation.
+* Do not connect an unrelated button to the nearest available screen.
+* If a destination is unclear, leave the interaction inactive until it is defined.
+
+---
+
+## 15. FIREBASE AND GEMINI — LATER INTEGRATION
+
+Keep the frontend prepared for these future services.
+
+Firebase:
+
+* Authentication.
+* User profiles.
+* Subjects and units.
+* Study plans and tasks.
+* Uploaded materials.
+* Quiz history.
+* Chat histories.
+* Progress and notifications.
+
+Gemini AI:
+
+* Personalized study-plan generation.
+* Quiz generation.
+* Quiz analysis.
+* Subject-specific chatbot.
+* Material summarisation.
+* Weak-topic detection.
+* Personalised recommendations.
+
+Do not expose API secrets in frontend code.
+
+Do not claim that Firebase or Gemini is connected unless it has actually been configured and tested.
+
+---
+
+## 16. FINAL TESTING
+
+Before finishing, test the following:
+
+1. A new user sees the correct empty states.
+2. Adding a subject displays it in the Subjects list.
+3. The added subject becomes available in Quiz.
+4. Selecting a subject opens the correct Subject Detail.
+5. Every subject has access to its own chatbot.
+6. Chat histories remain separate by subject.
+7. Materials remain associated with the correct subject.
+8. Completing a quiz saves the result and updates Progress.
+9. Study-task completion updates the relevant progress information.
+10. Profile changes are reflected across the app.
+11. All five primary navigation tabs work correctly.
+12. View Plan and Notifications open the correct screens.
+13. No button randomly opens an unrelated screen.
+14. Empty states change appropriately as data is added.
+15. The UI remains aligned with the original Figma screenshots on mobile.
+16. There are no major console errors or broken interactions.
+
+At the end, provide a concise report explaining:
+
+* What was fixed.
+* Which workflows now work.
+* Whether each subject chatbot is connected to real Gemini AI or is still a placeholder.
+* What remains for Firebase and backend integration.
+
+**FINAL INSTRUCTION: Modify the existing Study Flow project carefully. Preserve the completed UI. Prioritise correct navigation, shared data, subject-specific chatbots, and alignment fixes. Do not rebuild from scratch.**
