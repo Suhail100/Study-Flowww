@@ -91,7 +91,19 @@ export function EmptyStudyPlan({ active = 'Studyplan' }: { active?: string }) {
 
 export function PlanGenerating() {
   const { data } = useStudyFlow();
-  if (!data.studyPlan) return (
+  const [, go] = useLocation();
+  if (data.studyPlan) return (
+    <Frame nav>
+      <section className="plan-generating-reference" data-testid="screen-study-plan-saved">
+        <CenteredHeader title="Study plan" back="/study-plan/days" className="plan-status-header" />
+        <img className="plan-generating-art" src={studyPlanLoadingArt} alt="" />
+        <h2>Your local plan is ready</h2>
+        <p>This schedule is based on your saved<br />subjects and preferences.</p>
+        <Action testId="button-open-saved-plan" onClick={() => go('/study-plan/days')}>Open study plan</Action>
+      </section>
+    </Frame>
+  );
+  return (
     <Frame nav>
       <section className="plan-generating-reference" data-testid="screen-study-plan-generating">
         <CenteredHeader title="Study plan" back="/study-plan/days" className="plan-status-header" />
@@ -99,17 +111,6 @@ export function PlanGenerating() {
         <h2>AI plan generation is not connected</h2>
         <p>You can create a local draft from your saved<br />subjects, exam dates, and study time.</p>
         <CreateLocalPlan />
-      </section>
-    </Frame>
-  );
-  return (
-    <Frame>
-      <section className="plan-generating-reference" data-testid="screen-study-plan-generating">
-        <CenteredHeader title="AI study plan" back="/study-plan" className="plan-status-header" />
-        <img className="plan-generating-art" src={studyPlanLoadingArt} alt="" />
-        <span className="reference-loading-ring" role="status" aria-label="Loading" />
-        <h2>Generating your study plan...</h2>
-        <p>This may take a few moments.<br />our AI is creating a personalized<br />plan for you</p>
       </section>
     </Frame>
   );

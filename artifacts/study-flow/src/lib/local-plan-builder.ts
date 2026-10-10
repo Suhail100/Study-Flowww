@@ -19,10 +19,11 @@ export function hoursAsMinutes(value: string) {
 
 export function getPlanRequirements(subjects: Subject[], dailyHours: string) {
   const missing: string[] = [];
+  const today = localDate(new Date());
   if (!subjects.length) missing.push('Add at least one subject.');
   if (!dailyHours.trim() || hoursAsMinutes(dailyHours) < 30) missing.push('Set your daily study time in Goal settings.');
-  if (subjects.some(subject => !subject.examDate || Number.isNaN(new Date(`${subject.examDate}T00:00:00`).getTime()))) {
-    missing.push('Add an exam date for every subject.');
+  if (subjects.some(subject => !subject.examDate || Number.isNaN(new Date(`${subject.examDate}T12:00:00`).getTime()) || subject.examDate < today)) {
+    missing.push('Add a valid exam date on or after today for every subject.');
   }
   if (subjects.some(subject => !subject.goal.trim() || !/\d/.test(subject.goal))) {
     missing.push('Add a target score for every subject.');
@@ -31,10 +32,14 @@ export function getPlanRequirements(subjects: Subject[], dailyHours: string) {
 }
 
 export function buildLocalStudyPlan(subjects: Subject[], dailyHours: string): Omit<StudyPlan, 'id' | 'createdAt'> {
+  const requirements = getPlanRequirements(subjects, dailyHours);
+  if (requirements.length) throw new Error(requirements.join(' '));
   const dailyMinutes = hoursAsMinutes(dailyHours);
-  const closestExamDate = Math.min(...subjects.map(subject => new Date(`${subject.examDate}T00:00:00`).getTime()));
   const now = new Date();
-  const untilExam = Math.max(1, Math.ceil((closestExamDate - new Date(localDate(now)).getTime()) / (24 * 60 * 60 * 1000)));
+  const today = localDate(now);
+  const closestExamDate = Math.min(...subjects.map(subject => new Date(`${subject.examDate}T12:00:00`).getTime()));
+  const todayAtNoon = new Date(`${today}T12:00:00`).getTime();
+  const untilExam = Math.max(1, Math.ceil((closestExamDate - todayAtNoon) / (24 * 60 * 60 * 1000)) + 1);
   const dayCount = Math.max(1, Math.min(7, untilExam));
   const sessionMinutes = Math.max(15, Math.min(60, Math.floor(dailyMinutes / 2)));
   const tasks: StudyTask[] = [];

@@ -36,7 +36,7 @@ export function SettingsPage() {
                 type="button"
                 className="settings-reference-row"
                 key={title}
-                onClick={() => go(route)}
+                onClick={() => go(route === '/notifications' ? '/notifications?from=/settings' : route)}
                 data-testid="button-settings-notifications"
               >
                 {content}
@@ -54,10 +54,11 @@ export function SettingsPage() {
 }
 
 export function EmptyNotifications() {
+  const back = notificationReturnPath();
   return (
     <Frame>
       <section className="notifications-empty-reference" data-testid="screen-notifications-empty">
-        <CenteredHeader title="Notification" back="/settings" />
+        <CenteredHeader title="Notification" back={back} />
         <img src={notificationsEmptyArt} alt="" />
         <h2>No notifications yet</h2>
         <p>Updates will appear here when you<br />add subjects or record study activity.</p>
@@ -69,6 +70,7 @@ export function EmptyNotifications() {
 export function NotificationsList() {
   const { data, markNotificationRead } = useStudyFlow();
   const [, go] = useLocation();
+  const back = notificationReturnPath();
   if (!data.notifications.length) return <EmptyNotifications />;
   const items = [...data.notifications].sort((a, b) => b.createdAt - a.createdAt);
   const groups = new Map<string, typeof items>();
@@ -87,7 +89,7 @@ export function NotificationsList() {
   return (
     <Frame>
       <section className="notifications-list-reference" data-testid="screen-notifications">
-        <CenteredHeader title="Notification" back="/settings" />
+        <CenteredHeader title="Notification" back={back} />
         <div className="notification-groups">
           {Array.from(groups, ([group, groupItems]) => (
             <section className={`notification-group ${group.toLowerCase()}`} key={group}>
@@ -105,6 +107,12 @@ export function NotificationsList() {
       </section>
     </Frame>
   );
+}
+
+function notificationReturnPath() {
+  if (typeof window === 'undefined') return '/dashboard';
+  const from = new URLSearchParams(window.location.search).get('from');
+  return from?.startsWith('/') && !from.startsWith('//') ? from : '/dashboard';
 }
 
 const info = {

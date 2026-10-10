@@ -1,0 +1,243 @@
+# STUDY FLOW — COMPLETE UI CORRECTION & WORKFLOW IMPLEMENTATION
+
+## Main Instruction
+
+Continue working on my existing Study Flow project and its current HTML, CSS, and JavaScript code. The Figma UI is already designed, and the frontend has already been generated.
+
+**Do not rebuild the app from scratch. Do not redesign the existing screens.** Fix the listed bugs, implement the specified workflows, and preserve the original Figma design, colours, typography, spacing, icons, and navigation wherever possible.
+
+Before editing, inspect the existing project structure and identify the relevant screens, components, state management, and navigation logic. Reuse existing code and components.
+
+## 1. Fix the Existing UI Problems
+
+1. On the second onboarding screen, position the arrow beside the Next button correctly according to the Figma design. It must not appear at the far left.
+2. On Profile Setup, make Upload Photo open the camera when supported, with permission handling, preview, retake, and confirmation. Make Choose from Gallery open the appropriate image picker. Provide a fallback if camera access is unavailable.
+3. On Set Your Goals, the Daily Study Time field must initially display “Choose daily study time”. Open the available choices when tapped and save the user's selection. Do not preselect a value unless the user selects one.
+4. Fix PDF upload on Add Your Subjects. Investigate the cause of “Operation Failed”. Validate file type and size, show the selected filename and upload status, and provide useful errors and retry options. If permanent uploads are not yet configured, support local file selection and clearly distinguish selection from successful upload.
+5. Make subjects in Add Manually selectable. Show selected states, allow users to confirm adding them, and prevent duplicates.
+6. Fix the notification bell: it must open Notifications, not Settings.
+7. Centre the Study Plan illustration on the Study Plan screen according to Figma.
+8. Remove the unwanted Study Plan illustration from AI Study Plan Overview. Use the correct calendar icon for Overview and the separate intended icon for Study Plan.
+9. Fix the dashboard's “No Study Plan” message. The dashboard must use the same plan state as the AI Study Plan screen.
+10. Improve spacing around the AI Assistant section so its text and cards are not cramped.
+11. Remove unnecessary standalone AI Chatbot and Materials buttons from the Subjects list if they were added beyond the original design. Keep these features accessible inside Subject Detail.
+12. Restore the original Quiz tab icon from the existing Figma assets or project assets. Do not randomly substitute icons.
+13. Fix all obvious alignment, spacing, overflow, and mobile responsiveness problems while preserving the design.
+14. Do not show “Gemini AI is not connected” for every button. Implement local functionality wherever possible and show AI-specific unavailable states only for features that genuinely require an unconfigured AI backend.
+
+## 2. Automatic Subject Icons
+
+Implement automatic subject icons using normal frontend code. This feature does not require Gemini AI.
+
+When a subject is added, choose its icon based on its name. Use case-insensitive matching and recognise common name variations.
+
+Examples:
+
+* DBMS / Database Management → Database icon
+* Operating Systems / OS → Computer or monitor icon
+* Computer Networks / Networks / CN → Network icon
+* Mathematics / Maths → Calculator icon
+* Programming / Coding → Code icon
+* Physics → Atom icon
+* Chemistry → Flask icon
+* Biology → Leaf or suitable biology icon
+* English / Languages → Languages or book icon
+* Other or unrecognised subjects → Default book icon
+
+Requirements:
+
+* Automatically assign the matching icon when the subject is added.
+* When the subject is renamed, recalculate its icon from the new name.
+* Keep the icon consistent everywhere the subject appears, including Subjects, Subject Detail, dashboard recommendations, AI Study Plan, and relevant progress views.
+* Store or derive the icon consistently using the subject's ID and shared subject data. Do not create different icons for the same subject in different screens.
+* Reuse existing icon libraries and assets. Do not introduce unnecessary dependencies.
+* Preserve the current Figma style and icon sizing.
+
+## 3. Dashboard and AI Assistant Recommendations
+
+The dashboard must display recommendations relevant to subjects the user has actually added.
+
+* Once subjects exist, vary the suggested subject and topic across the user's subjects rather than always showing the same recommendation.
+* Suggestions may include summarising a topic, reviewing notes, practising questions, revising weak areas, or studying an upcoming exam topic.
+* If the user has no subjects, show a general onboarding suggestion to add a subject instead of inventing subject-specific recommendations.
+* Do not fabricate quiz scores, completed tasks, weak areas, study time, or AI analysis.
+* Before Gemini is configured, provide simple rule-based or sample recommendations based on actual user data and label demo content honestly when appropriate.
+* Later, Gemini can generate genuinely personalised suggestions based on the user's subjects, goals, exams, study activity, and quiz performance.
+* Make recommendation cards functional when their destination already exists. Do not create arbitrary new screens.
+
+## 4. Subjects Tab — Empty and Filled States
+
+The Subjects tab must support both states on the same screen.
+
+**New user / empty state:**
+
+* Display the existing “No Subjects” empty state and Add Subject action.
+* Do not preload DBMS, OS, Computer Networks, or any other subjects as actual user data.
+* Do not show subject-specific progress or recommendations for subjects the user has not added.
+
+**After subjects are added:**
+
+* Display only the subjects the user has explicitly added.
+* Keep subject cards consistent with the Figma design.
+* Use the automatic subject icon feature defined above.
+* Make search filter the actual list of subjects.
+* Make the Add Subject and Add Manually flows work correctly.
+* Prevent duplicate subjects.
+
+**Three-dot subject menu:**
+
+* Add working Rename and Delete actions.
+* Rename must update the subject name and automatic icon throughout the app.
+* Delete must show a confirmation before removing the subject.
+* When a subject is deleted, update all related lists and views consistently. Handle associated materials and chat history carefully and avoid orphaned records.
+
+## 5. Subject Details and Subject-Specific AI Chatbot
+
+Required navigation:
+
+Subjects → Select a Subject → Subject Detail → Ask AI / Chatbot.
+
+The chatbot must be accessible inside each subject's details. Do not add duplicate chatbot buttons to the Subjects list.
+
+Requirements:
+
+* Reuse one chatbot component for all subjects, but keep each conversation isolated using its subject ID.
+* DBMS chat history must not appear in OS or Computer Networks conversations.
+* Allow questions, explanations, examples, step-by-step help, topic summaries, and practice-question requests when the AI backend is available.
+* Support file selection for common formats where appropriate, including PDF, TXT, DOC, DOCX, PNG, JPG, JPEG, and other formats that the eventual backend can genuinely process. Audio and video may be offered only when the backend supports processing them.
+* Show the selected filename, preview when possible, file size, remove-before-send option, and validation errors.
+* Provide upload progress, success, failure, and retry states when actual upload infrastructure exists.
+* Do not claim that a file has been uploaded, analysed, or used as AI context until that operation succeeds.
+* If a backend is not yet available, implement the file picker and local selection/preview workflow without pretending that AI analysis has occurred.
+* Validate unsupported formats and file-size limits. Keep the limits configurable.
+* Keep each subject's materials and chatbot context associated with the correct subject.
+
+## 6. Quiz Workflow
+
+Implement this navigation using existing screens:
+
+Quiz Home → Select Subject → Quiz Setup → Questions → Results.
+
+Requirements:
+
+* Use only subjects added by the user.
+* If there are no subjects, display the existing empty state and a way to add one.
+* Make subject selection and quiz setup controls work.
+* Track selected answers and calculate the score from the actual questions and answers.
+* Display the actual correct answers, incorrect answers, score, and percentage. Track time only if the timer is implemented.
+* Save quiz attempts to the relevant subject and update Progress from real results.
+* If Gemini is not connected, use clearly labelled sample/demo questions or an honest unavailable state. Do not claim demo questions were generated by AI.
+* Restore the original Quiz tab icon and preserve the existing design.
+
+## 7. Progress Tab — Clean Layout and Correct Calculations
+
+The Progress screen is currently cluttered. Improve its hierarchy, spacing, alignment, and readability. Remove duplicate or unnecessary cards, but preserve the original Figma visual direction.
+
+Required navigation:
+
+Progress Overview → Select a Subject → Subject Progress Detail.
+
+The subject detail should use the existing Overview, Weak Areas, and AI Insights sections where designed.
+
+**New user:**
+
+* Overall progress must be 0%.
+* Do not show subject-wise progress for subjects that do not exist.
+* Show an appropriate empty state for no study activity and no quiz attempts.
+* Do not invent study time, completed tasks, quiz accuracy, weak topics, or AI insights.
+
+**Subject added but no study activity:**
+
+* The subject may appear in the subject list with 0% progress.
+* Adding a subject alone must not increase progress.
+* Do not show topic-level progress until topic activity has actually been tracked.
+* Do not mark topics as completed automatically.
+
+**After real activity:**
+
+* Calculate progress consistently from actual completed study tasks or topics.
+* Calculate quiz accuracy from actual quiz attempts.
+* Show weak areas only when sufficient quiz or study data exists.
+* Generate personalised AI insights only when the required backend and real data are available. Otherwise show an honest empty or unavailable state.
+* Keep the main Progress overview focused on general progress. Use the progress ring in subject details if that matches the Figma design.
+
+## 8. AI Study Plan Workflow
+
+The Start Study Plan / View Plan action on the dashboard must open the existing AI Study Plan workflow.
+
+Requirements:
+
+* Keep AI Study Plan outside the five-item bottom navigation.
+* Preserve the existing Overview, Study Plan, and Resources tabs.
+* Use one shared plan state across Home and AI Study Plan.
+* If no plan exists, show the intended start/generate flow rather than contradictory messages.
+* If required profile, goal, subject, daily study time, or exam information is missing, request only the necessary information.
+* Once a plan is generated or created, show it consistently on the dashboard and AI Study Plan screen.
+* If Gemini is not configured, implement the local flow and an honestly labelled demo/sample plan if appropriate. Do not claim it is AI-generated unless it actually was.
+* Allow study tasks to be marked complete and update Progress from real task completion.
+* Keep Resources grouped by the relevant subject. Support add, view, rename, replace, and delete where the existing UI provides these actions.
+* Do not fabricate uploaded resources or completed tasks.
+* Preserve the correct illustrations and icons for each tab.
+
+## 9. Profile and Notifications
+
+**Profile:**
+
+* Keep Profile Overview, Edit Profile, and Settings consistent with Figma.
+* Do not add a progress bar to Profile.
+* Make profile edits save correctly and update the dashboard greeting and other relevant UI.
+* Avoid duplicate Settings entries.
+
+**Notifications:**
+
+* The notification bell must open Notifications.
+* The Back action must return to the exact screen or tab the user came from, rather than always redirecting to Home or Settings.
+* Show a proper empty state when there are no notifications.
+* Do not fabricate reminders or claim notifications have been scheduled unless they are actually implemented.
+* Preserve the current screen state and scroll position where practical.
+
+## 10. Shared Data and Persistence
+
+Use consistent shared state across the app so updates are reflected everywhere.
+
+* Use stable subject IDs, not subject names alone, to connect subjects, materials, chat history, quizzes, progress, and study plans.
+* Renaming a subject must not break its related data.
+* Keep dashboard subject counts, recommendations, subject lists, quiz selection, progress, and study-plan information consistent.
+* Persist data using the existing project approach where available. If only local storage is available, use it honestly as local persistence and do not claim the data is synced to an account or database.
+* Do not introduce fake backend success states.
+* Structure the code so Firebase Authentication, Firestore, Storage, and secure server-side Gemini integration can be added later without rewriting the UI.
+* Never expose Gemini API keys in client-side HTML or JavaScript.
+
+## 11. Testing and Final Checks
+
+After making the changes, test the actual workflows on mobile-sized and desktop-sized layouts.
+
+Test at least these cases:
+
+1. New user with no subjects and no study plan.
+2. Add a subject manually.
+3. Verify its automatic icon.
+4. Rename the subject and verify its icon updates everywhere.
+5. Delete the subject after confirmation.
+6. Add multiple subjects and verify dashboard recommendations vary across those subjects.
+7. Verify that an empty Subjects list displays the correct empty state.
+8. Verify Progress remains at 0% until real study activity occurs.
+9. Complete a study task and verify progress updates correctly.
+10. Complete a quiz and verify the actual result is reflected in Progress.
+11. Open Notifications and return to the correct previous screen.
+12. Select an attachment and verify the correct validation and status behaviour.
+13. Verify each subject's chatbot history remains isolated.
+14. Verify Home and AI Study Plan show the same plan state.
+15. Check console errors, broken buttons, broken navigation, layout overflow, and duplicate records.
+
+## Final Constraints
+
+* Work on the existing codebase only.
+* Preserve the existing Figma UI.
+* Do not invent screens or connect unrelated buttons to arbitrary destinations.
+* Do not add unnecessary libraries, duplicate navigation, or duplicate subject components.
+* Do not use Gemini for simple deterministic features such as subject icons or basic local progress calculations.
+* Do not claim that Firebase, uploads, AI analysis, or notifications work unless they genuinely do.
+* Make the changes in the existing project, then provide a concise report listing what was fixed, what was tested, and what still requires backend/API configuration.
+* If the full task is too large for one pass, prioritise fixing existing UI bugs and local workflows first. Do not silently skip requirements; list any unfinished items clearly.
+*

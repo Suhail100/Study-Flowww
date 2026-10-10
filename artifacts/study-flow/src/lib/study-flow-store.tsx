@@ -241,6 +241,7 @@ type StudyFlowContextValue = {
   updateSubject: (subjectId: string, patch: Partial<SubjectDraft>) => void;
   deleteSubject: (subjectId: string) => void;
   addMaterial: (material: Omit<Material, 'id' | 'createdAt'>) => void;
+  updateMaterial: (materialId: string, patch: Pick<Material, 'name' | 'sourceUrl'>) => void;
   deleteMaterial: (materialId: string) => void;
   addChatMessage: (subjectId: string, message: Omit<ChatMessage, 'id' | 'createdAt'>) => void;
   saveStudyPlan: (plan: Omit<StudyPlan, 'id' | 'createdAt'>) => void;
@@ -341,15 +342,20 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         const subjects = current.subjects.filter(subject => subject.id !== subjectId);
         const chats = { ...current.chats };
         delete chats[subjectId];
+        const studyPlan = current.studyPlan
+          ? { ...current.studyPlan, tasks: current.studyPlan.tasks.filter(task => task.subjectId !== subjectId) }
+          : null;
+        const quizAttempts = current.quizAttempts.filter(attempt => attempt.subjectId !== subjectId);
         return {
           ...current,
           subjects,
           selectedSubjectId: current.selectedSubjectId === subjectId ? (subjects[0]?.id ?? null) : current.selectedSubjectId,
           materials: current.materials.filter(material => material.subjectId !== subjectId),
           chats,
-          studyPlan: current.studyPlan
-            ? { ...current.studyPlan, tasks: current.studyPlan.tasks.filter(task => task.subjectId !== subjectId) }
-            : null,
+          studyPlan: studyPlan?.tasks.length ? studyPlan : null,
+          quizAttempts,
+          lastQuizAttemptId: quizAttempts.some(attempt => attempt.id === current.lastQuizAttemptId) ? current.lastQuizAttemptId : null,
+          quizSession: current.quizSession?.subjectId === subjectId ? null : current.quizSession,
         };
       }),
       addMaterial: material => {
@@ -363,6 +369,10 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           href: '/study-plan/resources',
         });
       },
+      updateMaterial: (materialId, patch) => setData(current => ({
+        ...current,
+        materials: current.materials.map(material => material.id === materialId ? { ...material, ...patch } : material),
+      })),
       deleteMaterial: materialId => setData(current => ({
         ...current,
         materials: current.materials.filter(material => material.id !== materialId),

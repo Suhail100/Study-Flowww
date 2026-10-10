@@ -1,24 +1,26 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { BookOpen, ChartNoAxesColumnIncreasing, ChevronLeft, CircleHelp, Home, UserRound } from 'lucide-react';
+import { BookOpen, ChartNoAxesColumnIncreasing, ChevronLeft, FileQuestion, Home, UserRound } from 'lucide-react';
 
 export function Action({
   children,
   onClick,
   testId,
   outline = false,
+  className,
 }: {
   children: ReactNode;
   onClick?: () => void;
   testId: string;
   outline?: boolean;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       data-testid={testId}
       onClick={onClick}
-      className={outline ? 'button-outline' : 'button-primary'}
+      className={`${outline ? 'button-outline' : 'button-primary'} ${className ?? ''}`}
     >
       {children}
     </button>
@@ -28,11 +30,11 @@ export function Action({
 function BottomNav() {
   const [location] = useLocation();
   const nav = [
-    ['/dashboard', <Home size={31} />, 'Home'],
-    ['/subjects', <BookOpen size={31} />, 'Subjects'],
-    ['/quiz', <CircleHelp size={31} />, 'Quiz'],
-    ['/progress', <ChartNoAxesColumnIncreasing size={31} />, 'Progress'],
-    ['/profile', <UserRound size={31} />, 'Profile'],
+    ['/dashboard', <Home size={23} />, 'Home'],
+    ['/subjects', <BookOpen size={23} />, 'Subjects'],
+    ['/quiz', <FileQuestion size={23} />, 'Quiz'],
+    ['/progress', <ChartNoAxesColumnIncreasing size={23} />, 'Progress'],
+    ['/profile', <UserRound size={23} />, 'Profile'],
   ] as const;
 
   const activePath =
